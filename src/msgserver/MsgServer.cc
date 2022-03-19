@@ -35,6 +35,7 @@ MsgServer::MsgServer(std::string host, uint16_t port, EventLoop* loop):
         std::bind(&MsgServer::onLoginRequest, this, _1, _2, _3));
     dispatcher_.registerMessageCallback<IM::Login::IMLogoutReq>(
         std::bind(&MsgServer::onLoginOutRequest, this, _1, _2, _3));
+
     dispatcher_.registerMessageCallback<IM::Buddy::IMDepartmentReq>(
         std::bind(&MsgServer::onClientDepartmentRequest, this, _1, _2, _3));
     dispatcher_.registerMessageCallback<IM::Buddy::IMRecentContactSessionReq>(
@@ -43,11 +44,18 @@ MsgServer::MsgServer(std::string host, uint16_t port, EventLoop* loop):
         std::bind(&MsgServer::onAllUserRequest, this, _1, _2, _3));
     dispatcher_.registerMessageCallback<IM::Buddy::IMUsersStatReq>(
         std::bind(&MsgServer::onUsersStatusRequest, this, _1, _2, _3));
+    dispatcher_.registerMessageCallback<IM::Buddy::IMChangeSignInfoReq>(
+        std::bind(&MsgServer::onChangeSignInfoRequest, this, _1, _2, _3));
 
     dispatcher_.registerMessageCallback<IM::Group::IMGroupChangeMemberRsp>(
         std::bind(&MsgServer::onGroupChangeMemberResponse, this, _1, _2, _3));
     dispatcher_.registerMessageCallback<IM::Group::IMNormalGroupListReq>(
         std::bind(&MsgServer::onNormalGroupListRequest, this, _1, _2, _3));
+    dispatcher_.registerMessageCallback<IM::Group::IMGroupCreateReq>(
+        std::bind(&MsgServer::onGroupCreateRequest, this, _1, _2, _3));
+    dispatcher_.registerMessageCallback<IM::Group::IMGroupInfoListReq>(
+        std::bind(&MsgServer::onGroupInfoListRequest, this, _1, _2, _3));
+
 
     dispatcher_.registerMessageCallback<IM::Message::IMMsgData>(
         std::bind(&MsgServer::onMsgData, this, _1, _2, _3));
@@ -59,6 +67,8 @@ MsgServer::MsgServer(std::string host, uint16_t port, EventLoop* loop):
         std::bind(&MsgServer::onUnreadMsgCntRequest, this, _1, _2, _3));
     dispatcher_.registerMessageCallback<IM::Message::IMGetMsgListReq>(
         std::bind(&MsgServer::onGetMsgListRequest, this, _1, _2, _3));
+    dispatcher_.registerMessageCallback<IM::Message::IMClientTimeReq>(
+        std::bind(&MsgServer::onClientTimeRequest, this, _1, _2, _3));
 
     dispatcher_.registerMessageCallback<IM::File::IMFileHasOfflineReq>(
         std::bind(&MsgServer::onFileHasOfflineRequest, this, _1, _2, _3));
@@ -87,6 +97,7 @@ void MsgServer::onTimer()
     for (const auto& clientConn : g_clientConns) {
         ClientConnInfo* clientInfo = 
             std::any_cast<ClientConnInfo*>(clientConn->getContext());
+        clientInfo->clearCntPerSec();
         if (currTick > clientInfo->lastRecvTick() + 120000) {
             LOG_DEBUG << "currTick=" << currTick << ", lastRecvTick=" << clientInfo->lastRecvTick();
             LOG_ERROR << "client timeout, conn=" << clientConn->name();
@@ -94,11 +105,10 @@ void MsgServer::onTimer()
         }
 
         std::list<HalfMsg> halfMsgs = clientInfo->halfMsgs();
-        for (auto it = halfMsgs.begin(); 
-            it != halfMsgs.end(); ) {
+        for (auto it = halfMsgs.begin(); it != halfMsgs.end(); ) {
             if (currTick >= it->timestamp + waitMsgDataAckTimeout) {
-                LOG_ERROR << "a msg missed, msgId=" << it->msgId 
-                    << ", " << it->fromId << "->" << clientInfo->userId();
+                LOG_ERROR << "a msg missed, msgId=" << it->msgId << ", " 
+                    << it->fromId << "->" << clientInfo->userId();
                 g_downMsgMissCnt++;
                 it = halfMsgs.erase(it);
             } else {
@@ -206,7 +216,7 @@ void MsgServer::onLoginRequest(const TCPConnectionPtr& conn,
                         const LoginReqPtr& message, 
                         int64_t receiveTime)
 {
-    LOG_INFO << "onLoginReq: username=" << message->user_name() 
+    LOG_INFO << "onLoginRequest: username=" << message->user_name() 
         << ", status=" << message->client_type();
     ClientConnInfo* clientInfo = std::any_cast<ClientConnInfo*>(conn->getContext());
     if (!clientInfo->loginName().empty()) {
@@ -232,7 +242,7 @@ void MsgServer::onLoginRequest(const TCPConnectionPtr& conn,
         msg.set_server_time(static_cast<uint32_t>(time(NULL)));
         msg.set_result_code(static_cast<IM::BaseDefine::ResultType>(result));
         msg.set_result_string(resultStr);
-        LOG_DEBUG << " " << msg.server_time() << " " << msg.result_code() << " " << msg.result_string();
+        LOG_ERROR << "server error, result=" << resultStr;
         clientCodec_.send(conn, msg);
         conn->shutdown();
         return;
@@ -492,7 +502,7 @@ void MsgServer::onMsgData(const slite::TCPConnectionPtr& conn,
 	}
 }
 
-void MsgServer::onMsgDataReadAck(const slite::TCPConnectionPtr& conn, 
+void MsgServer::onMsgDataReadAck(const TCPConnectionPtr& conn, 
                                 const MsgDataReadAckPtr& message, 
                                 int64_t receiveTime)
 {
@@ -529,7 +539,9 @@ void MsgServer::onMsgDataReadAck(const slite::TCPConnectionPtr& conn,
     }
 }
 
-void MsgServer::onMsgDataAck(const slite::TCPConnectionPtr& conn, const MsgDataAckPtr& message, int64_t receiveTime)
+void MsgServer::onMsgDataAck(const TCPConnectionPtr& conn,
+                            const MsgDataAckPtr& message, 
+                            int64_t receiveTime)
 {
     ClientConnInfo* clientInfo = std::any_cast<ClientConnInfo*>(conn->getContext());
     IM::BaseDefine::SessionType sessionType = message->session_type();
@@ -539,4 +551,96 @@ void MsgServer::onMsgDataAck(const slite::TCPConnectionPtr& conn, const MsgDataA
         uint32_t sessionId = message->session_id();
         clientInfo->delMsgFromHalfList(msgId, sessionId);
     }
+}
+
+void MsgServer::onGetLatestMsgIDReq(const TCPConnectionPtr& conn, 
+                                    const GetLatestMsgIdReqPtr& message, 
+                                    int64_t receiveTime)
+{
+    ClientConnInfo* clientInfo = std::any_cast<ClientConnInfo*>(conn->getContext());
+    uint32_t sessionType = message->session_type();
+    uint32_t sessionId = message->session_id();
+    LOG_INFO << "onGetLatestMsgIDReq, user_id=" << clientInfo->userId() 
+        << ", session_id=" << sessionId << ", session_type=" << sessionType;
+    
+    TCPConnectionPtr dbConn = getRandomDBProxyConn();
+    if (dbConn) {
+        message->set_user_id(clientInfo->userId());
+        message->set_attach_data(conn->name());
+        codec_.send(dbConn, *message.get());
+    }
+}
+
+void MsgServer::onChangeSignInfoRequest(const TCPConnectionPtr& conn, 
+                                        const ChangeSignInfoReqPtr& message, 
+                                        int64_t receiveTime)
+{
+    ClientConnInfo* clientInfo = std::any_cast<ClientConnInfo*>(conn->getContext());
+    LOG_INFO << "onChangeSignInfoRequest, user_id=" << clientInfo->userId();
+    TCPConnectionPtr dbConn = getRandomDBProxyConn();
+    if (dbConn) {
+        message->set_user_id(clientInfo->userId());
+        message->set_attach_data(conn->name());
+        codec_.send(dbConn, *message.get());
+    }
+}
+
+void MsgServer::onGroupCreateRequest(const slite::TCPConnectionPtr& conn, 
+                                    const GroupCreateReqPtr& message, 
+                                    int64_t receiveTime)
+{
+    ClientConnInfo* clientInfo = std::any_cast<ClientConnInfo*>(conn->getContext());
+	uint32_t userId = clientInfo->userId();
+    string groupName = message->group_name();
+    uint32_t groupType = message->group_type();
+    if (groupType == IM::BaseDefine::GROUP_TYPE_NORMAL) {
+        LOG_ERROR << "onGroupCreateRequest, create normal group failed, userId=" << userId << ", groupName=" << groupName;
+        return;
+    }
+	string groupAvatar = message->group_avatar();
+	uint32_t userCnt = message->member_id_list_size();
+	LOG_INFO << "onGroupCreateRequest, userId=" << userId << ", groupName=" 
+        << groupName << ", avatarUrl=" << groupAvatar << ", user_cnt=" << userCnt;
+
+	TCPConnectionPtr dbConn = getRandomDBProxyConn();
+	if (dbConn) {
+        message->set_user_id(userId);
+        message->set_attach_data(conn->name());
+        codec_.send(dbConn, *message.get());
+	} else {
+		LOG_ERROR << "no DB connection ";
+        IM::Group::IMGroupCreateRsp msg2;
+        msg2.set_user_id(userId);
+        msg2.set_result_code(1);
+        msg2.set_group_name(groupName);
+		clientCodec_.send(conn, msg2);
+	}
+}
+
+void MsgServer::onGroupInfoListRequest(const slite::TCPConnectionPtr& conn, 
+                                        const GroupInfoListReqPtr& message, 
+                                        int64_t receiveTime)
+{
+    ClientConnInfo* clientInfo = std::any_cast<ClientConnInfo*>(conn->getContext());
+    uint32_t userId = clientInfo->userId();
+    uint32_t groupCnt = message->group_version_list_size();
+    LOG_INFO << "onGroupInfoListRequest, user_id=" << userId << ", group_cnt=" << groupCnt;
+    
+    TCPConnectionPtr dbConn = getRandomDBProxyConn();
+    if (dbConn) {
+        message->set_user_id(userId);
+        message->set_attach_data(conn->name());
+        codec_.send(dbConn, *message.get());
+    }
+    else {
+        LOG_ERROR << "no db connection. ";
+        IM::Group::IMGroupInfoListRsp msg2;
+        msg2.set_user_id(userId);
+        clientCodec_.send(conn, msg2);
+    }
+}
+
+void MsgServer::onClientTimeRequest(const slite::TCPConnectionPtr& conn, const ClientTimeReqPtr& message, int64_t receiveTime)
+{
+    return;
 }

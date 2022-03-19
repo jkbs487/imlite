@@ -350,7 +350,7 @@ void GroupMessageModel::getUnReadCntAll(uint32_t userId, uint32_t &totalCnt)
             string userKey = std::to_string(userId) + "_" + std::to_string(groupId) + GROUP_USER_MSG_COUNTER_REDIS_KEY_SUFFIX;
             string strUserCnt = cacheConn->hget(userKey, GROUP_COUNTER_SUBKEY_COUNTER_FIELD);
             
-            uint32_t userCnt = (strUserCnt.empty() ? 0 : ((uint32_t)atoi(strUserCnt.c_str())) );
+            uint32_t userCnt = (strUserCnt.empty() ? 0 : (static_cast<uint32_t>(atoi(strUserCnt.c_str()))) );
             if (groupCnt >= userCnt) {
                 count = groupCnt - userCnt;
             }
@@ -363,3 +363,20 @@ void GroupMessageModel::getUnReadCntAll(uint32_t userId, uint32_t &totalCnt)
         LOG_ERROR << "no cache connection for unread";
     }
 }
+
+bool GroupMessageModel::resetMsgId(uint32_t groupId)
+{
+    bool ret = false;
+    CacheConn* cacheConn = cachePool_->getCacheConn();
+    if (cacheConn) {
+        string key = "group_msg_id_" + std::to_string(groupId);
+        string value = "0";
+        string reply = cacheConn->set(key, value);
+        if (reply == value) {
+            ret = true;
+        }
+        cachePool_->relCacheConn(cacheConn);
+    }
+    return ret;
+}
+

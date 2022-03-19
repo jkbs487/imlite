@@ -34,6 +34,8 @@ DBProxyClient::DBProxyClient(std::string host, uint16_t port, EventLoop* loop)
         std::bind(&DBProxyClient::onRecentContactSessionResponse, this, _1, _2, _3));
     dispatcher_.registerMessageCallback<IM::Buddy::IMAllUserRsp>(
         std::bind(&DBProxyClient::onClientAllUserResponse, this, _1, _2, _3));
+    dispatcher_.registerMessageCallback<IM::Buddy::IMChangeSignInfoRsp>(
+        std::bind(&DBProxyClient::onChangeUserSignInfoResponse, this, _1, _2, _3));
 
     dispatcher_.registerMessageCallback<IM::Message::IMUnreadMsgCntRsp>(
         std::bind(&DBProxyClient::onUnreadMsgCntResponse, this, _1, _2, _3));
@@ -44,6 +46,10 @@ DBProxyClient::DBProxyClient(std::string host, uint16_t port, EventLoop* loop)
 
     dispatcher_.registerMessageCallback<IM::Group::IMNormalGroupListRsp>(
         std::bind(&DBProxyClient::onNormalGroupListResponse, this, _1, _2, _3));
+    dispatcher_.registerMessageCallback<IM::Group::IMGroupCreateRsp>(
+        std::bind(&DBProxyClient::onGroupCreateResponse, this, _1, _2, _3));
+    dispatcher_.registerMessageCallback<IM::Group::IMGroupInfoListRsp>(
+        std::bind(&DBProxyClient::onGroupInfoListResponse, this, _1, _2, _3));
 
     loop_->runEvery(1.0, std::bind(&DBProxyClient::onTimer, this));
 }
@@ -178,7 +184,6 @@ void DBProxyClient::onValidateResponse(const TCPConnectionPtr& conn,
 
         LOG_INFO << "user_name: " << loginName << ", uid: " << userId;
         clientInfo->setUserId(userId);
-        clientInfo->setOpen();
 
         // 发到所有登录服务器，更新用户数
         IM::Server::IMUserCntUpdate msg;
@@ -348,7 +353,48 @@ void DBProxyClient::onMsgData(const slite::TCPConnectionPtr& conn,
                             int64_t receiveTime)
 {
     if (CHECK_MSG_TYPE_GROUP(message->msg_type())) {
-        //s_group_chat->HandleGroupMessage();
+        uint32_t fromUserId = message->from_user_id();
+        uint32_t toGroupId = message->to_session_id();
+        string msgData = message->msg_data();
+        uint32_t msgId = message->msg_id();
+        if (msgId == 0) {
+            LOG_ERROR << "onMsgData, write db failed, " << fromUserId << "->" << toGroupId;
+            return;
+        }
+        uint8_t msgType = message->msg_type();
+
+        LOG_INFO << "onMsgData, " << fromUserId << "->" << toGroupId 
+            << ", msgId=" << msgId << ", msgType=" << msgType;
+
+        TCPConnectionPtr fromConn = ImUserManager::getInstance()->getMsgConnByHandle(fromUserId,
+                                            message->attach_data());
+        if (fromConn) {
+            //接收反馈
+            IM::Message::IMMsgDataAck msg2;
+            msg2.set_user_id(fromUserId);
+            msg2.set_session_id(toGroupId);
+            msg2.set_msg_id(msgId);
+            msg2.set_session_type(::IM::BaseDefine::SESSION_TYPE_GROUP);
+            clientCodec_.send(fromConn, msg2);
+        }
+        
+        TCPConnectionPtr routeConn = getRandomRouteConn();
+        if (routeConn) {
+            codec_.send(routeConn, *message.get());
+        }
+        
+        // 服务器没有群的信息，向DB服务器请求群信息，并带上消息作为附件，返回时在发送该消息给其他群成员
+        //IM::BaseDefine::GroupVersionInfo group_version_info;
+        IM::Group::IMGroupInfoListReq msg3;
+        msg3.set_user_id(fromUserId);
+        IM::BaseDefine::GroupVersionInfo* groupVersionInfo = msg3.add_group_version_list();
+        groupVersionInfo->set_group_id(toGroupId);
+        groupVersionInfo->set_version(0);
+        msg3.set_attach_data(message->SerializeAsString());
+        TCPConnectionPtr dbConn = getRandomDBProxyConn();
+        if (dbConn) {
+            codec_.send(dbConn, msg3);
+        }
         return;
     }
     
@@ -525,4 +571,122 @@ void DBProxyClient::onGetDeviceTokenResponse(const slite::TCPConnectionPtr& conn
             PushConn->SendPdu(&pdu3);
         }
     }*/
+}
+
+void DBProxyClient::onChangeUserSignInfoResponse(const slite::TCPConnectionPtr& conn, 
+                                                const ChangeSignInfoRspPtr& message, 
+                                                int64_t receiveTime)
+{
+    uint32_t userId = message->user_id();
+    uint32_t result = message->result_code();
+
+    LOG_INFO << "onChangeUserSignInfoResponse: user_id=" << userId
+        << ", result=" << result;
+
+    std::string connName = message->attach_data();
+
+    TCPConnectionPtr msgConn = ImUserManager::getInstance()->getMsgConnByHandle(userId, connName);
+
+    if (msgConn && msgConn->connected()) {
+        message->clear_attach_data();
+        clientCodec_.send(conn, *message.get());
+    } else {
+        LOG_ERROR << "onChangeUserSignInfoResponse: can't found msg_conn by userId=" << 
+            userId << ", handle=" << connName;
+    }
+
+    if (!result) {
+        TCPConnectionPtr routeConn = getRandomRouteConn();
+        if (routeConn) {
+            IM::Buddy::IMSignInfoChangedNotify msg;
+            msg.set_changed_user_id(userId);
+            msg.set_sign_info(message->sign_info());
+            codec_.send(routeConn, msg);
+        }else {
+            LOG_ERROR << "onChangeUserSignInfoResponse: can't found route_conn";
+        }
+    }
+}
+
+void DBProxyClient::onGroupCreateResponse(const slite::TCPConnectionPtr& conn, 
+                                        const GroupCreateRspPtr& message, 
+                                        int64_t receiveTime)
+{
+	uint32_t userId = message->user_id();
+    uint32_t result = message->result_code();
+	uint32_t groupId = message->group_id();
+	string groupName = message->group_name();
+	uint32_t userCnt = message->user_id_list_size();
+	LOG_INFO << "onGroupCreateResponse, userId=" << userId << ", result=" << result 
+        << ", group_id=" << groupId << ", groupName=" << groupName << ", member_cnt=" << userCnt;
+
+    TCPConnectionPtr fromConn = ImUserManager::getInstance()->getMsgConnByHandle(userId, message->attach_data());
+    if (fromConn) {
+        message->clear_attach_data();
+        clientCodec_.send(fromConn, *message.get());
+    }
+    //创建的通知暂时取消，因为有消息的时候客户端也会去拉取
+}
+
+void DBProxyClient::onGroupInfoListResponse(const slite::TCPConnectionPtr& conn, 
+                                            const GroupInfoListRspPtr& message, 
+                                            int64_t receiveTime)
+{
+    uint32_t userId = message->user_id();
+    uint32_t groupCnt = message->group_info_list_size();
+    
+    LOG_INFO << "onGroupInfoListResponse, user_id=" << userId << ", group_cnt=" << groupCnt;
+    
+    //此处是查询成员时使用，主要用于群消息从数据库获得msg_id后进行发送,一般此时group_cnt = 1
+    if (message->attach_data().size() > 0 && groupCnt > 0) {
+        IM::BaseDefine::GroupInfo groupInfo = message->group_info_list(0);
+        uint32_t groupId = groupInfo.group_id();
+        LOG_INFO << "GroupInfoRequest is send by server, group_id=" << groupId;
+    
+        std::set<uint32_t> groupMembers;
+        for (int i = 0; i < groupInfo.group_member_list_size(); i++) {
+            uint32_t memberUserId = groupInfo.group_member_list(i);
+            groupMembers.insert(memberUserId);
+        }
+        if (groupMembers.find(userId) == groupMembers.end()) {
+            LOG_ERROR << "user_id=" << userId << " is not in group, group_id=" << groupId;
+            return;
+        }
+        
+        IM::Message::IMMsgData msg2;
+        msg2.ParseFromArray(message->attach_data().data(), static_cast<int>(message->attach_data().size()));
+        
+        /*
+        //Push相关
+        IM::Server::IMGroupGetShieldReq msg3;
+        msg3.set_group_id(groupId);
+        msg3.set_attach_data(message->attach_data());
+        for (uint32_t i = 0; i < groupInfo.group_member_list_size(); i++) {
+            uint32_t memberUserId = groupInfo.group_member_list(i);
+            msg3.add_user_id(memberUserId);
+            ImUser* toImUser = ImUserManager::getInstance()->getImUserById(memberUserId);
+            if (toImUser) {
+                TCPConnectionPtr fromConn = nullptr;
+                if (memberUserId == userId) {
+                    std::string connName = message->attach_data();
+                    if(!connName.empty())
+                        fromConn = ImUserManager::getInstance()->getMsgConnByHandle(userId, connName);
+                }
+                
+                toImUser->broadcastData(message->attach_data().data(), message->attach_data().size(), fromConn);
+            }
+        }
+        
+        TCPConnectionPtr dbConn = getRandomDBProxyConn();
+        if (dbConn) {
+            codec_.send(dbConn, msg2);
+        }
+        */
+    } else if (message->attach_data().empty()) {
+        //正常获取群信息的返回
+        TCPConnectionPtr msgConn = ImUserManager::getInstance()->getMsgConnByHandle(userId, message->attach_data());
+        if (msgConn) {
+            codec_.send(msgConn, *message.get());
+        }
+    }
 }

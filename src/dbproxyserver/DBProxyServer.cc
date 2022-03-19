@@ -39,15 +39,22 @@ DBProxyServer::DBProxyServer(std::string host, uint16_t port, EventLoop* loop):
         std::bind(&DBProxyServer::onValidateRequest, this, _1, _2, _3));
     dispatcher_.registerMessageCallback<IM::Server::IMGetDeviceTokenReq>(
         std::bind(&DBProxyServer::onGetDeviceTokenReq, this, _1, _2, _3));
+        
     dispatcher_.registerMessageCallback<IM::Buddy::IMDepartmentReq>(
         std::bind(&DBProxyServer::onClientDepartmentRequest, this, _1, _2, _3));
     dispatcher_.registerMessageCallback<IM::Buddy::IMAllUserReq>(
         std::bind(&DBProxyServer::onClientAllUserRequest, this, _1, _2, _3));
     dispatcher_.registerMessageCallback<IM::Buddy::IMRecentContactSessionReq>(
         std::bind(&DBProxyServer::onRecentContactSessionRequest, this, _1, _2, _3));
+    dispatcher_.registerMessageCallback<IM::Buddy::IMChangeSignInfoReq>(
+        std::bind(&DBProxyServer::onChangeUserSignInfoRequest, this, _1, _2, _3));
 
     dispatcher_.registerMessageCallback<IM::Group::IMNormalGroupListReq>(
         std::bind(&DBProxyServer::onNormalGroupListRequest, this, _1, _2, _3));
+    dispatcher_.registerMessageCallback<IM::Group::IMGroupCreateReq>(
+        std::bind(&DBProxyServer::onGroupCreateRequest, this, _1, _2, _3));
+    dispatcher_.registerMessageCallback<IM::Group::IMGroupInfoListReq>(
+        std::bind(&DBProxyServer::onGroupInfoListRequest, this, _1, _2, _3));
 
     dispatcher_.registerMessageCallback<IM::Message::IMMsgData>(
         std::bind(&DBProxyServer::onMsgData, this, _1, _2, _3));
@@ -488,7 +495,7 @@ void DBProxyServer::onMsgData(const slite::TCPConnectionPtr& conn,
     size_t msgLen = message->msg_data().length();
     
     SessionModel sessionModel(dbPool_, cachePool_);
-    uint32_t now = (uint32_t)time(NULL);
+    uint32_t now = static_cast<uint32_t>(time(NULL));
     if (IM::BaseDefine::MsgType_IsValid(msgType)) {
         if(msgLen != 0) {
             uint32_t msgId = 0;
@@ -705,8 +712,8 @@ void DBProxyServer::onGetDeviceTokenReq(const slite::TCPConnectionPtr& conn,
 }
 
 void DBProxyServer::onMsgDataReadAck(const slite::TCPConnectionPtr& conn, 
-                    const MsgDataReadAckPtr& message, 
-                    int64_t receiveTime)
+                                    const MsgDataReadAckPtr& message, 
+                                    int64_t receiveTime)
 {
     UserModel userModel(dbPool_, cachePool_);
     uint32_t userId = message->user_id();
@@ -714,6 +721,113 @@ void DBProxyServer::onMsgDataReadAck(const slite::TCPConnectionPtr& conn,
     IM::BaseDefine::SessionType sessionType = message->session_type();
     userModel.clearUserCounter(userId, fromId, sessionType);
     LOG_INFO << "onMsgDataReadAck, userId=" << fromId << ", peerId=" << userId << ", type=" << sessionType;
+}
+
+void DBProxyServer::onChangeUserSignInfoRequest(const slite::TCPConnectionPtr& conn, 
+                                        const ChangeSignInfoReqPtr& message, 
+                                        int64_t receiveTime) {
+    IM::Buddy::IMChangeSignInfoRsp resp;
+    uint32_t userId = message->user_id();
+    const string& signInfo = message->sign_info();
+    UserModel userModel(dbPool_, cachePool_);
+
+    bool result = userModel.updateUserSignInfo(userId, signInfo);
+
+    resp.set_user_id(userId);
+    resp.set_result_code(result ? 0 : 1);
+    if (result) {
+        resp.set_sign_info(signInfo);
+        LOG_INFO << "onChangeUserSignInfo, userId=" << userId << ", signInfo=" << signInfo;
+    } else {
+        LOG_ERROR << "onChangeUserSignInfo false, userId=" << userId << ", signInfo=" << signInfo;
+    }
+
+    resp.set_attach_data(message->attach_data());
+    codec_.send(conn, resp);
+}
+
+void DBProxyServer::onGroupCreateRequest(const slite::TCPConnectionPtr& conn, 
+                                        const GroupCreateReqPtr& message, 
+                                        int64_t receiveTime)
+{
+    IM::Group::IMGroupCreateRsp resp;
+    uint32_t userId = message->user_id();
+    string groupName = message->group_name();
+    IM::BaseDefine::GroupType groupType = message->group_type();
+    if (IM::BaseDefine::GroupType_IsValid(groupType)) {
+        string groupAvatar = message->group_avatar();
+        set<uint32_t> groupMembers;
+        uint32_t memberCnt = message->member_id_list_size();
+        for (uint32_t i = 0; i < memberCnt; ++i) {
+            uint32_t id = message->member_id_list(i);
+            groupMembers.insert(id);
+        }
+        
+        GroupModel groupModel(dbPool_, cachePool_);
+        uint32_t groupId = groupModel.createGroup(userId, groupName, groupAvatar, groupType, groupMembers);
+        resp.set_user_id(userId);
+        resp.set_group_name(groupName);
+        for (const auto& member : groupMembers) {
+            resp.add_user_id_list(member);
+        }
+        if (groupId != 0) {
+            resp.set_result_code(0);
+            resp.set_group_id(groupId);
+        } else {
+            resp.set_result_code(1);
+        }
+        
+        LOG_INFO << "createGroup, userId=" << userId << " create " 
+            << groupName << ", userCnt=" << groupMembers.size() << "result=" << resp.result_code();
+        
+        resp.set_attach_data(message->attach_data());
+        codec_.send(conn, resp);
+    } else {
+        LOG_ERROR << "invalid group type, userId=" << userId << ", groupName-" 
+            << groupName << ", groupType=" << groupType;
+    }
+}
+
+void DBProxyServer::onGroupInfoListRequest(const slite::TCPConnectionPtr& conn, 
+                                            const GroupInfoListReqPtr& message, 
+                                            int64_t receiveTime)
+{
+    IM::Group::IMGroupInfoListRsp resp;
+    uint32_t userId = message->user_id();
+    uint32_t groupCnt = message->group_version_list_size();
+    GroupModel groupModel(dbPool_, cachePool_);
+
+    map<uint32_t, IM::BaseDefine::GroupVersionInfo> mapGroupId;
+    for (uint32_t i = 0; i < groupCnt; ++i) {
+        IM::BaseDefine::GroupVersionInfo groupInfo = message->group_version_list(i);
+        if (groupModel.isValidateGroupId(groupInfo.group_id())) {
+            mapGroupId[groupInfo.group_id()] = groupInfo;
+        }
+    }
+    list<IM::BaseDefine::GroupInfo> groupInfos;
+    groupModel.getGroupInfo(mapGroupId, groupInfos);
+    
+    resp.set_user_id(userId);
+    for (const auto& groupInfo : groupInfos) {
+        IM::BaseDefine::GroupInfo* pGroupInfo = resp.add_group_info_list();
+        pGroupInfo->set_group_id(groupInfo.group_id());
+        pGroupInfo->set_version(groupInfo.version());
+        pGroupInfo->set_group_name(groupInfo.group_name());
+        pGroupInfo->set_group_avatar(groupInfo.group_avatar());
+        pGroupInfo->set_group_creator_id(groupInfo.group_creator_id());
+        pGroupInfo->set_group_type(groupInfo.group_type());
+        pGroupInfo->set_shield_status(groupInfo.shield_status());
+        uint32_t groupMemberCnt = groupInfo.group_member_list_size();
+        for (uint32_t i = 0; i < groupMemberCnt; ++i) {
+            uint32_t id = groupInfo.group_member_list(i);
+            pGroupInfo->add_group_member_list(id);
+        }
+    }
+    
+    LOG_INFO << "userId=" << userId << ", requestCount=" << groupCnt;
+    
+    resp.set_attach_data(message->attach_data());
+    codec_.send(conn, resp);
 }
 
 int main()
@@ -725,3 +839,4 @@ int main()
     dbProxyServer.start();
     loop.loop();
 }
+

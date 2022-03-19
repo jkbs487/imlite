@@ -251,11 +251,11 @@ void ImUserManager::removeImUserById(uint32_t userId)
 
 void ImUserManager::removeImUser(ImUser *pUser)
 {
-    if (pUser != NULL) {
+    if (pUser != nullptr) {
         removeImUserById(pUser->getUserId());
         removeImUserByLoginName(pUser->getLoginName());
         delete pUser;
-        pUser = NULL;
+        pUser = nullptr;
     }
 }
 

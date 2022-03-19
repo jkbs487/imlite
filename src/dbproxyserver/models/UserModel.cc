@@ -162,3 +162,51 @@ void UserModel::clearUserCounter(uint32_t userId, uint32_t peerId, IM::BaseDefin
         LOG_ERROR << "invalid sessionType. userId=%u, fromId=%u, sessionType=%u";
     }
 }
+
+bool UserModel::getUserSingInfo(uint32_t userId, string* signInfo)
+{
+    bool rv = false;
+    DBConn* dbConn = dbPool_->getDBConn();
+    if (dbConn) {
+        string strSql = "SELECT sign_info FROM IMUser WHERE id=" + std::to_string(userId);
+        ResultSet* resultSet = dbConn->executeQuery(strSql);
+        if (resultSet) {
+            if (resultSet->next()) {
+                *signInfo = resultSet->getString("signInfo");
+                rv = true;
+            }
+            delete resultSet;
+        } else {
+            LOG_ERROR << "no result set for sql:" << strSql;
+        }
+        dbPool_->relDBConn(dbConn);
+    } else {
+        LOG_ERROR << "no db connection for teamtalk_slave";
+    }
+    return rv;
+}
+
+bool UserModel::updateUserSignInfo(uint32_t userId, const string& signInfo) 
+{
+    if (signInfo.size() > 128) {
+        LOG_ERROR << "updateUserSignInfo: sign_info.length()>128.";
+        return false;
+    }
+    bool rv = false;
+    DBConn* dbConn = dbPool_->getDBConn();
+    if (dbConn) {
+        uint32_t now = static_cast<uint32_t>(time(NULL));
+        string strSql = "UPDATE IMUser set `sign_info`='" + signInfo + 
+            "', `updated`=" + std::to_string(now) + " WHERE id=" + std::to_string(userId);
+        rv = dbConn->executeUpdate(strSql);
+        if(!rv) {
+            LOG_ERROR << "updateUserSignInfo: update failed:" << strSql;
+        }else{
+            //SyncCenter::getInstance()->updateTotalUpdate(now);
+        }
+        dbPool_->relDBConn(dbConn);
+    } else {
+        LOG_ERROR << "no db connection for teamtalk_master";
+    }
+    return rv;
+}

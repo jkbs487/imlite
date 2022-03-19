@@ -53,9 +53,12 @@ private:
     void onRecentContactSessionRequest(const slite::TCPConnectionPtr& conn, const RecentContactSessionReqPtr& message, int64_t receiveTime);
     void onAllUserRequest(const slite::TCPConnectionPtr& conn, const AllUserReqPtr& message, int64_t receiveTime);
     void onUsersStatusRequest(const slite::TCPConnectionPtr& conn, const UsersStatReqPtr& message, int64_t receiveTime);
+    void onChangeSignInfoRequest(const slite::TCPConnectionPtr& conn, const ChangeSignInfoReqPtr& message, int64_t receiveTime);
     
     void onNormalGroupListRequest(const slite::TCPConnectionPtr& conn, const NormalGroupListReqPtr& message, int64_t receiveTime);
     void onGroupChangeMemberResponse(const slite::TCPConnectionPtr& conn, const GroupChangeMemberRspPtr& message, int64_t receiveTime);
+    void onGroupCreateRequest(const slite::TCPConnectionPtr& conn, const GroupCreateReqPtr& message, int64_t receiveTime);
+    void onGroupInfoListRequest(const slite::TCPConnectionPtr& conn, const GroupInfoListReqPtr& message, int64_t receiveTime);
 
     void onMsgData(const slite::TCPConnectionPtr& conn, const MsgDataPtr& message, int64_t receiveTime);
     void onMsgDataAck(const slite::TCPConnectionPtr& conn, const MsgDataAckPtr& message, int64_t receiveTime);
@@ -63,6 +66,7 @@ private:
     void onUnreadMsgCntRequest(const slite::TCPConnectionPtr& conn, const UnreadMsgCntReqPtr& message, int64_t receiveTime);
     void onGetMsgListRequest(const slite::TCPConnectionPtr& conn, const GetMsgListReqPtr& message, int64_t receiveTime);
     void onClientTimeRequest(const slite::TCPConnectionPtr& conn, const ClientTimeReqPtr& message, int64_t receiveTime);
+    void onGetLatestMsgIDReq(const slite::TCPConnectionPtr& conn, const GetLatestMsgIdReqPtr& message, int64_t receiveTime);
 
     void onFileHasOfflineRequest(const slite::TCPConnectionPtr& conn, const FileHasOfflineReqPtr& message, int64_t receiveTime);
 

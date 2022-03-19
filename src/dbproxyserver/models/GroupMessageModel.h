@@ -16,6 +16,7 @@ public:
     bool sendAudioMessage(uint32_t fromId, uint32_t groupId, IM::BaseDefine::MsgType msgType, uint32_t createTime, uint32_t msgId,const char* msgContent, uint32_t msgLen);
     bool clearMessageCount(uint32_t userId, uint32_t groupId);
     void getUnReadCntAll(uint32_t userId, uint32_t &totalCnt);
+    bool resetMsgId(uint32_t groupId);
 private:
     bool incMessageCount(uint32_t userId, uint32_t groupId);
 

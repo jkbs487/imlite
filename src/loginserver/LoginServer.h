@@ -1,3 +1,5 @@
+#pragma once
+
 #include "slite/TCPServer.h"
 #include "slite/EventLoop.h"
 #include "slite/http/HTTPCodec.h"
