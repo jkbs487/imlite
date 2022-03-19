@@ -33,10 +33,16 @@ typedef std::shared_ptr<IM::Buddy::IMUsersStatRsp> UsersStatRspPtr;
 typedef std::shared_ptr<IM::Buddy::IMUserStatNotify> UserStatNotifyPtr;
 typedef std::shared_ptr<IM::Buddy::IMRemoveSessionNotify> RemoveSessionNotifyPtr;
 typedef std::shared_ptr<IM::Buddy::IMSignInfoChangedNotify> SignInfoChangedNotifyPtr;
+typedef std::shared_ptr<IM::Buddy::IMChangeSignInfoReq> ChangeSignInfoReqPtr;
+typedef std::shared_ptr<IM::Buddy::IMChangeSignInfoRsp> ChangeSignInfoRspPtr;
 
 typedef std::shared_ptr<IM::Group::IMNormalGroupListReq> NormalGroupListReqPtr;
 typedef std::shared_ptr<IM::Group::IMNormalGroupListRsp> NormalGroupListRspPtr;
 typedef std::shared_ptr<IM::Group::IMGroupChangeMemberRsp> GroupChangeMemberRspPtr;
+typedef std::shared_ptr<IM::Group::IMGroupCreateReq> GroupCreateReqPtr;
+typedef std::shared_ptr<IM::Group::IMGroupCreateRsp> GroupCreateRspPtr;
+typedef std::shared_ptr<IM::Group::IMGroupInfoListReq> GroupInfoListReqPtr;
+typedef std::shared_ptr<IM::Group::IMGroupInfoListRsp> GroupInfoListRspPtr;
 
 typedef std::shared_ptr<IM::Message::IMMsgData> MsgDataPtr;
 typedef std::shared_ptr<IM::Message::IMMsgDataAck> MsgDataAckPtr;
@@ -48,6 +54,7 @@ typedef std::shared_ptr<IM::Message::IMGetMsgListReq> GetMsgListReqPtr;
 typedef std::shared_ptr<IM::Message::IMGetMsgListRsp> GetMsgListRspPtr;
 typedef std::shared_ptr<IM::Message::IMClientTimeReq> ClientTimeReqPtr;
 typedef std::shared_ptr<IM::Message::IMClientTimeRsp> ClientTimeRspPtr;
+typedef std::shared_ptr<IM::Message::IMGetLatestMsgIdReq> GetLatestMsgIdReqPtr;
 
 typedef std::shared_ptr<IM::File::IMFileHasOfflineReq> FileHasOfflineReqPtr;
 
