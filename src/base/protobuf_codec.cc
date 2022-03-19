@@ -28,6 +28,7 @@ void ProtobufCodec::fillEmptyBuffer(std::string& buf, const google::protobuf::Me
   // buf->retrieveAll();
   assert(buf.size() == 0);
   std::pair<uint16_t, uint16_t> id = typeNameToId(message.GetTypeName());
+  //LOG_DEBUG << "typename:" << message.GetTypeName() << ", id: " << id.first << ", " << id.second;
   uint16_t version = htons(1);
   uint16_t appid = htons(0);
   uint16_t serviceId = htons(id.first);
@@ -251,6 +252,9 @@ std::string ProtobufCodec::idToTypeName(uint16_t serviceId, uint16_t commandId)
     case IM::BaseDefine::CID_BUDDY_LIST_DEPARTMENT_REQUEST:
         typeName = "IM.Buddy.IMDepartmentReq";
         break;
+    case IM::BaseDefine::CID_BUDDY_LIST_CHANGE_SIGN_INFO_REQUEST:
+        typeName = "IM.Buddy.IMChangeSignInfoReq";
+        break;
     case IM::BaseDefine::CID_MSG_DATA:
         typeName = "IM.Message.IMMsgData";
         break;
@@ -266,8 +270,17 @@ std::string ProtobufCodec::idToTypeName(uint16_t serviceId, uint16_t commandId)
     case IM::BaseDefine::CID_MSG_LIST_REQUEST:
         typeName = "IM.Message.IMGetMsgListReq";
         break;
+    case IM::BaseDefine::CID_MSG_TIME_REQUEST:
+        typeName = "IM.Message.IMClientTimeReq";
+        break;
     case IM::BaseDefine::CID_GROUP_NORMAL_LIST_REQUEST:
         typeName = "IM.Group.IMNormalGroupListReq";
+        break;
+    case IM::BaseDefine::CID_GROUP_CREATE_REQUEST:
+        typeName = "IM.Group.IMGroupCreateReq";
+        break;
+    case IM::BaseDefine::CID_GROUP_INFO_REQUEST:
+        typeName = "IM.Group.IMGroupInfoListReq";
         break;
     case IM::BaseDefine::CID_FILE_HAS_OFFLINE_REQ:
         typeName = "IM.File.IMFileHasOfflineReq";
@@ -322,6 +335,15 @@ std::pair<uint16_t, uint16_t> ProtobufCodec::typeNameToId(std::string typeName)
     } else if (typeName == "IM.Buddy.IMRemoveSessionNotify") {
         serviceId = 2;
         commandId = IM::BaseDefine::CID_BUDDY_LIST_REMOVE_SESSION_NOTIFY;
+    } else if (typeName == "IM.Buddy.IMChangeSignInfoRsp") {
+        serviceId = 2;
+        commandId = IM::BaseDefine::CID_BUDDY_LIST_CHANGE_SIGN_INFO_RESPONSE;
+    } else if (typeName == "IM.Buddy.IMSignInfoChangedNotify") {
+        serviceId = 2;
+        commandId = IM::BaseDefine::CID_BUDDY_LIST_SIGN_INFO_CHANGED_NOTIFY;
+    } else if (typeName == "IM.Server.IMServerPCLoginStatusNotify") {
+        serviceId = 2;
+        commandId = IM::BaseDefine::CID_BUDDY_LIST_PC_LOGIN_STATUS_NOTIFY;
     } else if (typeName == "IM.Message.IMUnreadMsgCntRsp") {
         serviceId = 3;
         commandId = IM::BaseDefine::CID_MSG_UNREAD_CNT_RESPONSE;
@@ -337,9 +359,18 @@ std::pair<uint16_t, uint16_t> ProtobufCodec::typeNameToId(std::string typeName)
     } else if (typeName == "IM.Message.IMMsgDataReadNotify") {
         serviceId = 3;
         commandId = IM::BaseDefine::CID_MSG_READ_NOTIFY;
+    } else if (typeName == "IM.Message.IMClientTimeRsp") {
+        serviceId = 3;
+        commandId = IM::BaseDefine::CID_MSG_TIME_RESPONSE;
     } else if (typeName == "IM.Group.IMNormalGroupListRsp") {
         serviceId = 4;
         commandId = IM::BaseDefine::CID_GROUP_NORMAL_LIST_RESPONSE;
+    } else if (typeName == "IM.Group.IMGroupCreateRsp") {
+        serviceId = 4;
+        commandId = IM::BaseDefine::CID_GROUP_CREATE_RESPONSE;
+    } else if (typeName == "IM.Group.IMGroupInfoListRsp") {
+        serviceId = 4;
+        commandId = IM::BaseDefine::CID_GROUP_INFO_RESPONSE;
     } else if (typeName == "IM.SwitchService.IMP2PCmdMsg") {
         serviceId = 6;
         commandId = IM::BaseDefine::CID_SWITCH_P2P_CMD;
