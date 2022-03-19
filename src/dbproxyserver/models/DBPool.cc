@@ -1,12 +1,15 @@
 #include "DBPool.h"
 #include <string.h>
 
+#include "slite/Logger.h"
+
 #define log_error printf
 #define log_warn printf
 #define log_info printf
 #define MIN_DB_CONN_CNT 2
 #define MAX_DB_CONN_FAIL_NUM 10
 
+using namespace slite;
 
 ResultSet::ResultSet(MYSQL_RES *res)
 {
@@ -222,7 +225,7 @@ int DBConn::init()
 		return 1;
 	}
 
-	my_bool reconnect = true;
+	bool reconnect = true;
 	mysql_options(mysql_, MYSQL_OPT_RECONNECT, &reconnect);	// 配合mysql_ping实现自动重连
 	mysql_options(mysql_, MYSQL_SET_CHARSET_NAME, "utf8mb4");	// utf8mb4和utf8区别
 
@@ -300,7 +303,7 @@ bool DBConn::executeUpdate(std::string sqlQuery, bool care_affected_rows)
 	mysql_ping(mysql_);
 
 	if (mysql_real_query(mysql_, sqlQuery.c_str(), strlen(sqlQuery.c_str()))) {
-		log_error("mysql_real_query failed: %s, sql: %s\n", mysql_error(mysql_), sqlQuery.c_str());
+		LOG_ERROR << "mysql_real_query failed: " << mysql_error(mysql_) << ", sql:" << sqlQuery;
 		//g_master_conn_fail_num ++;
 		return false;
 	}
