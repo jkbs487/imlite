@@ -188,7 +188,24 @@ void RouteClient::onMsgData(const slite::TCPConnectionPtr& conn,
                 int64_t receiveTime)
 {
     if (CHECK_MSG_TYPE_GROUP(message->msg_type())) {
-        //
+        uint32_t fromUserId = message->from_user_id();
+        uint32_t toGroupId = message->to_session_id();
+        string msgData = message->msg_data();
+        uint32_t msgId = message->msg_id();
+        LOG_INFO << "onMsgData, " << fromUserId << "->" << toGroupId << ", msgId=" << msgId;
+        
+        // 服务器没有群的信息，向DB服务器请求群信息，并带上消息作为附件，返回时在发送该消息给其他群成员
+        //IM::BaseDefine::GroupVersionInfo group_version_info;
+        IM::Group::IMGroupInfoListReq msg2;
+        msg2.set_user_id(fromUserId);
+        IM::BaseDefine::GroupVersionInfo* group_version_info = msg2.add_group_version_list();
+        group_version_info->set_group_id(toGroupId);
+        group_version_info->set_version(0);
+        msg2.set_attach_data(message->SerializeAsString());
+        TCPConnectionPtr dbConn = getRandomDBProxyConn();
+        if (dbConn) {
+            codec_.send(dbConn, msg2);
+        }
         return;
     }
 	uint32_t fromUserId = message->from_user_id();

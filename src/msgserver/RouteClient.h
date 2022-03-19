@@ -20,6 +20,8 @@ extern std::set<slite::TCPConnectionPtr> g_dbProxyConns;
 extern std::set<slite::TCPConnectionPtr> g_routeConns;
 extern std::set<slite::TCPConnectionPtr> g_fileConns;
 
+extern slite::TCPConnectionPtr getRandomDBProxyConn();
+
 namespace IM {
 
 class RouteClient
