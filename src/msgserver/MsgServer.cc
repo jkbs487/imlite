@@ -355,8 +355,22 @@ void MsgServer::onFileHasOfflineRequest(const TCPConnectionPtr& conn,
                                         const FileHasOfflineReqPtr& message, 
                                         int64_t receiveTime)
 {
-LOG_INFO << "onFileHasOfflineRequest";
-return;
+    ClientConnInfo* clientInfo = std::any_cast<ClientConnInfo*>(conn->getContext());
+    uint32_t userId = clientInfo->userId();
+    LOG_INFO << "onFileHasOfflineRequest, userId=" << userId;
+
+    TCPConnectionPtr dbConn = getRandomDBProxyConn();
+    if (dbConn) {
+        IM::File::IMFileHasOfflineReq msg;
+        msg.set_user_id(userId);
+        msg.set_attach_data(message->attach_data());
+        codec_.send(dbConn, msg);
+    } else {
+        LOG_ERROR << "warning no DB connection available ";
+        IM::File::IMFileHasOfflineRsp msg;
+        message->set_user_id(userId);
+        codec_.send(dbConn, msg);
+    }
 }
 
 void MsgServer::onNormalGroupListRequest(const TCPConnectionPtr& conn, 

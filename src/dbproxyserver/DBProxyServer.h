@@ -27,8 +27,6 @@ public:
         threadPool_.start(4);
         server_.start();
     }
-    void onTimer();
-
 private:
     DBProxyServer(const DBProxyServer& server) = delete;
 
@@ -37,6 +35,7 @@ private:
         int64_t lastSendTick;
     };
 
+    void onTimer();
     void onConnection(const slite::TCPConnectionPtr& conn);
     void onMessage(const slite::TCPConnectionPtr& conn, std::string& buffer, int64_t receiveTime);
     void onWriteComplete(const slite::TCPConnectionPtr& conn);
@@ -58,6 +57,8 @@ private:
     void onUnreadMsgCntRequest(const slite::TCPConnectionPtr& conn, const UnreadMsgCntReqPtr& message, int64_t receiveTime);
     void onGetMsgListRequest(const slite::TCPConnectionPtr& conn, const GetMsgListReqPtr& message, int64_t receiveTime);
     void onGetDeviceTokenReq(const slite::TCPConnectionPtr& conn, const GetDeviceTokenReqPtr& message, int64_t receiveTime);
+
+    void onFileHasOfflineRequest(const slite::TCPConnectionPtr& conn, const FileHasOfflineReqPtr& message, int64_t receiveTime);
 
     bool doLogin(const std::string &strName, const std::string &strPass, IM::BaseDefine::UserInfo& user);
 

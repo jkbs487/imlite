@@ -6,6 +6,7 @@
 #include "models/RelationModel.h"
 #include "models/MessageModel.h"
 #include "models/GroupMessageModel.h"
+#include "models/FileModel.h"
 
 #include "EncDec.h"
 
@@ -64,6 +65,9 @@ DBProxyServer::DBProxyServer(std::string host, uint16_t port, EventLoop* loop):
         std::bind(&DBProxyServer::onUnreadMsgCntRequest, this, _1, _2, _3));
     dispatcher_.registerMessageCallback<IM::Message::IMGetMsgListReq>(
         std::bind(&DBProxyServer::onGetMsgListRequest, this, _1, _2, _3));
+
+    dispatcher_.registerMessageCallback<IM::File::IMFileHasOfflineReq>(
+        std::bind(&DBProxyServer::onFileHasOfflineRequest, this, _1, _2, _3));
 
     loop_->runEvery(1.0, std::bind(&DBProxyServer::onTimer, this));
     threadPool_.setMaxQueueSize(10);
@@ -824,7 +828,32 @@ void DBProxyServer::onGroupInfoListRequest(const slite::TCPConnectionPtr& conn,
         }
     }
     
-    LOG_INFO << "userId=" << userId << ", requestCount=" << groupCnt;
+    LOG_INFO << "onGroupInfoListRequest, userId=" << userId << ", requestCount=" << groupCnt;
+    
+    resp.set_attach_data(message->attach_data());
+    codec_.send(conn, resp);
+}
+
+void DBProxyServer::onFileHasOfflineRequest(const slite::TCPConnectionPtr& conn, 
+                                            const FileHasOfflineReqPtr& message, 
+                                            int64_t receiveTime)
+{
+    IM::File::IMFileHasOfflineRsp resp;
+    uint32_t userId = message->user_id();
+
+    FileModel fileModel(dbPool_, cachePool_);
+    list<IM::BaseDefine::OfflineFileInfo> offlines;
+    fileModel.getOfflineFile(userId, offlines);
+    resp.set_user_id(userId);
+    for (const auto& offline : offlines) {
+        IM::BaseDefine::OfflineFileInfo* pInfo = resp.add_offline_file_list();
+        pInfo->set_from_user_id(offline.from_user_id());
+        pInfo->set_task_id(offline.task_id());
+        pInfo->set_file_name(offline.file_name());
+        pInfo->set_file_size(offline.file_size());
+    }
+    
+    LOG_INFO << "onFileHasOfflineRequest, userId=" << userId << ", count=" << resp.offline_file_list_size();
     
     resp.set_attach_data(message->attach_data());
     codec_.send(conn, resp);

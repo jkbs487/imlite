@@ -57,5 +57,6 @@ typedef std::shared_ptr<IM::Message::IMClientTimeRsp> ClientTimeRspPtr;
 typedef std::shared_ptr<IM::Message::IMGetLatestMsgIdReq> GetLatestMsgIdReqPtr;
 
 typedef std::shared_ptr<IM::File::IMFileHasOfflineReq> FileHasOfflineReqPtr;
+typedef std::shared_ptr<IM::File::IMFileHasOfflineRsp> FileHasOfflineRspPtr;
 
 typedef std::shared_ptr<IM::SwitchService::IMP2PCmdMsg> P2PCmdMsgPtr;

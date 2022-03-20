@@ -11,6 +11,7 @@ set(dbproxyserver_SRCS
   models/SessionModel.cc
   models/GroupModel.cc
   models/GroupMessageModel.cc
+  models/FileModel.cc
 )
 
 SET(MYSQL_LIB /usr/lib64/mysql)

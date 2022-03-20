@@ -23,6 +23,7 @@ extern std::set<slite::TCPConnectionPtr> g_fileConns;
 extern slite::TCPConnectionPtr getRandomRouteConn();
 extern slite::TCPConnectionPtr getRandomDBProxyConn();
 extern slite::TCPConnectionPtr getRandomDBProxyConnForLogin();
+extern slite::TCPConnectionPtr getRandomFileConn();
 
 namespace IM {
 
@@ -60,6 +61,7 @@ private:
     void onNormalGroupListResponse(const slite::TCPConnectionPtr& conn, const NormalGroupListRspPtr& message, int64_t receiveTime);
     void onGroupCreateResponse(const slite::TCPConnectionPtr& conn, const GroupCreateRspPtr& message, int64_t receiveTime);
     void onGroupInfoListResponse(const slite::TCPConnectionPtr& conn, const GroupInfoListRspPtr& message, int64_t receiveTime);
+    void onFileHasOfflineResponse(const slite::TCPConnectionPtr& conn, const FileHasOfflineRspPtr& message, int64_t receiveTime);
 
     slite::TCPClient client_;
     slite::EventLoop* loop_;

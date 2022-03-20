@@ -51,6 +51,9 @@ DBProxyClient::DBProxyClient(std::string host, uint16_t port, EventLoop* loop)
     dispatcher_.registerMessageCallback<IM::Group::IMGroupInfoListRsp>(
         std::bind(&DBProxyClient::onGroupInfoListResponse, this, _1, _2, _3));
 
+    dispatcher_.registerMessageCallback<IM::File::IMFileHasOfflineRsp>(
+        std::bind(&DBProxyClient::onFileHasOfflineResponse, this, _1, _2, _3));
+
     loop_->runEvery(1.0, std::bind(&DBProxyClient::onTimer, this));
 }
 
@@ -688,5 +691,32 @@ void DBProxyClient::onGroupInfoListResponse(const slite::TCPConnectionPtr& conn,
         if (msgConn) {
             codec_.send(msgConn, *message.get());
         }
+    }
+}
+
+void DBProxyClient::onFileHasOfflineResponse(const slite::TCPConnectionPtr& conn, 
+                                            const FileHasOfflineRspPtr& message, 
+                                            int64_t receiveTime)
+{
+    uint32_t userId = message->user_id();
+    uint32_t fileCnt = message->offline_file_list_size();
+    LOG_INFO << "onFileHasOfflineResponse, userId=" << userId << ", fileCnt=" << fileCnt;
+    
+    TCPConnectionPtr msgConn = ImUserManager::getInstance()->getMsgConnByHandle(userId, message->attach_data());
+    TCPConnectionPtr fileConn = getRandomFileConn();
+    //const list<IM::BaseDefine::IpAddr>* ips = nullptr;
+    if (fileConn) {
+        // ips = fileConn->GetFileServerIPList();
+        // for (const auto& ip : ips) {
+        //     IM::BaseDefine::IpAddr* ip_addr = message->add_ip_addr_list();
+        //     ip_addr->set_ip(ip.ip());
+        //     ip_addr->set_port(ip.port());
+        // }
+    }
+    else {
+        LOG_ERROR << "HandleFileHasOfflineRes, no file server.";
+    }
+    if (msgConn) {
+        clientCodec_.send(msgConn, *message.get());
     }
 }
