@@ -21,6 +21,8 @@ typedef std::shared_ptr<IM::Server::IMUserStatusUpdate> UserStatusUpdatePtr;
 typedef std::shared_ptr<IM::Server::IMRoleSet> RoleSetPtr;
 typedef std::shared_ptr<IM::Server::IMGetDeviceTokenReq> GetDeviceTokenReqPtr;
 typedef std::shared_ptr<IM::Server::IMGetDeviceTokenRsp> GetDeviceTokenRspPtr;
+typedef std::shared_ptr<IM::Server::IMFileTransferReq> FileTransferReqPtr;
+typedef std::shared_ptr<IM::Server::IMFileTransferRsp> FileTransferRspPtr;
 
 typedef std::shared_ptr<IM::Buddy::IMDepartmentReq> DepartmentReqPtr;
 typedef std::shared_ptr<IM::Buddy::IMDepartmentRsp> DepartmentRspPtr;
@@ -58,5 +60,10 @@ typedef std::shared_ptr<IM::Message::IMGetLatestMsgIdReq> GetLatestMsgIdReqPtr;
 
 typedef std::shared_ptr<IM::File::IMFileHasOfflineReq> FileHasOfflineReqPtr;
 typedef std::shared_ptr<IM::File::IMFileHasOfflineRsp> FileHasOfflineRspPtr;
+typedef std::shared_ptr<IM::File::IMFileLoginReq> FileLoginReqPtr;
+typedef std::shared_ptr<IM::File::IMFileLoginRsp> FileLoginRspPtr;
+typedef std::shared_ptr<IM::File::IMFileState> FileStatePtr;
+typedef std::shared_ptr<IM::File::IMFilePullDataReq> FilePullDataReqPtr;
+typedef std::shared_ptr<IM::File::IMFilePullDataRsp> FilePullDataRspPtr;
 
 typedef std::shared_ptr<IM::SwitchService::IMP2PCmdMsg> P2PCmdMsgPtr;

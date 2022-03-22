@@ -285,6 +285,21 @@ std::string ProtobufCodec::idToTypeName(uint16_t serviceId, uint16_t commandId)
     case IM::BaseDefine::CID_FILE_HAS_OFFLINE_REQ:
         typeName = "IM.File.IMFileHasOfflineReq";
         break;
+    case IM::BaseDefine::CID_FILE_LOGIN_REQ:
+        typeName = "IM.File.IMFileLoginReq";
+        break;
+    case IM::BaseDefine::CID_FILE_STATE:
+        typeName = "IM.File.IMFileState";
+        break;
+    case IM::BaseDefine::CID_FILE_PULL_DATA_REQ:
+        typeName = "IM.File.IMFilePullDataReq";
+        break;
+    case IM::BaseDefine::CID_FILE_PULL_DATA_RSP:
+        typeName = "IM.File.IMFilePullDataRsp";
+        break;
+    case IM::BaseDefine::CID_OTHER_FILE_TRANSFER_REQ:
+        typeName = "IM.Server.IMFileTransferReq";
+        break;
     case IM::BaseDefine::CID_SWITCH_P2P_CMD:
         typeName = "IM.SwitchService.IMP2PCmdMsg";
         break;
@@ -371,6 +386,21 @@ std::pair<uint16_t, uint16_t> ProtobufCodec::typeNameToId(std::string typeName)
     } else if (typeName == "IM.Group.IMGroupInfoListRsp") {
         serviceId = 4;
         commandId = IM::BaseDefine::CID_GROUP_INFO_RESPONSE;
+    } else if (typeName == "IM.File.IMFileLoginRsp") {
+        serviceId = 5;
+        commandId = IM::BaseDefine::CID_FILE_LOGIN_RES;
+    } else if (typeName == "IM.File.IMFileState") {
+        serviceId = 5;
+        commandId = IM::BaseDefine::CID_FILE_STATE;
+    } else if (typeName == "IM.File.IMFilePullDataRsq") {
+        serviceId = 5;
+        commandId = IM::BaseDefine::CID_FILE_PULL_DATA_REQ;
+    } else if (typeName == "IM.File.IMFilePullDataRsp") {
+        serviceId = 5;
+        commandId = IM::BaseDefine::CID_FILE_PULL_DATA_RSP;
+    } else if (typeName == "IM.Server.IMFileTransferRsp") {
+        serviceId = 7;
+        commandId = IM::BaseDefine::CID_OTHER_FILE_TRANSFER_RSP;
     } else if (typeName == "IM.SwitchService.IMP2PCmdMsg") {
         serviceId = 6;
         commandId = IM::BaseDefine::CID_SWITCH_P2P_CMD;
