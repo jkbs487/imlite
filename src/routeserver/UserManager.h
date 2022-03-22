@@ -25,12 +25,12 @@ public:
     
     uint32_t getStatus();
      
-    void addRouteConn(slite::TCPConnectionPtr conn) { routeConnSet_.insert(conn); }
-    void removeRouteConn(slite::TCPConnectionPtr conn) { routeConnSet_.erase(conn); }
+    void addRouteConn(const slite::TCPConnectionPtr& conn) { routeConnSet_.insert(conn); }
+    void removeRouteConn(const slite::TCPConnectionPtr& conn) { routeConnSet_.erase(conn); }
     
     void clearRouteConn() { routeConnSet_.clear(); }
     set<slite::TCPConnectionPtr>* getRouteConn() { return &routeConnSet_; }
-    bool findRouteConn(slite::TCPConnectionPtr pConn);
+    bool findRouteConn(const slite::TCPConnectionPtr& pConn);
     
     size_t getRouteConnCount() { return routeConnSet_.size(); }
     void addClientType(uint32_t clientType);

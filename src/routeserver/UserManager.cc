@@ -46,7 +46,7 @@ void UserManager::removeClientType(uint32_t clientType)
     }
 }
 
-bool UserManager::findRouteConn(TCPConnectionPtr conn)
+bool UserManager::findRouteConn(const TCPConnectionPtr& conn)
 {
     set<TCPConnectionPtr>::iterator it = routeConnSet_.find(conn);
     if (it != routeConnSet_.end()) {
