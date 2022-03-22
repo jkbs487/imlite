@@ -92,16 +92,16 @@ uint32_t SessionModel::getSessionId(uint32_t userId, uint32_t peerId, uint32_t t
         string strSql;
         if (isAll) {
             strSql= "SELECT id FROM IMRecentSession WHERE userId = " + 
-                std::to_string(userId) + " and peerId=" + std::to_string(peerId) + 
-                " and type=" + std::to_string(type);
+                std::to_string(userId) + " AND peerId=" + std::to_string(peerId) + 
+                " AND type=" + std::to_string(type);
         } else {
             strSql= "SELECT id FROM IMRecentSession WHERE userId = " + 
-                std::to_string(userId) + " and peerId=" + std::to_string(peerId) + 
-                " and type=" + std::to_string(type) + " and status=0";
+                std::to_string(userId) + " AND peerId=" + std::to_string(peerId) + 
+                " AND type=" + std::to_string(type) + " AND status=0";
         }
         
         ResultSet* resultSet = dbConn->executeQuery(strSql);
-        if(resultSet) {
+        if (resultSet) {
             while (resultSet->next()) {
                 sessionId = resultSet->getInt("id");
             }
@@ -119,9 +119,9 @@ bool SessionModel::updateSession(uint32_t sessionId, uint32_t updateTime)
     bool ret = false;
     DBConn* dbConn = dbPool_->getDBConn();
     if (dbConn) {
-        string strSql = "UPDATE IMRecentSession set `updated` = " + 
+        string strSql = "UPDATE IMRecentSession SET updated=" + 
             std::to_string(updateTime) + " WHERE id=" + std::to_string(sessionId);
-        ret = dbConn->executeUpdate(strSql);
+        ret = dbConn->executeUpdate(strSql, false);
         dbPool_->relDBConn(dbConn);
     } else {
         LOG_ERROR << "no db connection for teamtalk";
@@ -138,8 +138,8 @@ uint32_t SessionModel::addSession(uint32_t userId, uint32_t peerId, uint32_t typ
     DBConn* dbConn = dbPool_->getDBConn();
     if (dbConn) {
         if(0 != sessionId) {
-            string strSql = "update IMRecentSession set status=0, updated=" + 
-                std::to_string(timeNow) + " where id=" + std::to_string(sessionId);
+            string strSql = "UPDATE IMRecentSession SET status=0, updated=" + 
+                std::to_string(timeNow) + " WHERE id=" + std::to_string(sessionId);
             bool ret = dbConn->executeUpdate(strSql);
             if(!ret) {
                 sessionId = 0;
@@ -147,7 +147,7 @@ uint32_t SessionModel::addSession(uint32_t userId, uint32_t peerId, uint32_t typ
             LOG_WARN << "has relation ship set status";
         }
         else {
-            string strSql = "insert into IMRecentSession (`userId`,`peerId`,`type`,`status`,`created`,`updated`) values(?,?,?,?,?,?)";
+            string strSql = "INSERT INTO IMRecentSession (`userId`,`peerId`,`type`,`status`,`created`,`updated`) values(?,?,?,?,?,?)";
             // 必须在释放连接前delete CPrepareStatement对象，否则有可能多个线程操作mysql对象，会crash
             PrepareStatement* stmt = new PrepareStatement();
             if (stmt->init(dbConn->getMysql(), strSql)) {

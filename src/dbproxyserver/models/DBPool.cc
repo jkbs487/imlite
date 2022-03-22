@@ -312,10 +312,10 @@ bool DBConn::executeUpdate(std::string sqlQuery, bool care_affected_rows)
 		return true;
 	} else { // 影响的行数为0时
 		if (care_affected_rows) { // 如果在意影响的行数时, 返回false, 否则返回true
-			log_error("mysql_real_query failed: %s, sql: %s\n\n", mysql_error(mysql_), sqlQuery.c_str());
+			LOG_ERROR << "mysql_real_query failed: " << mysql_error(mysql_) << ", sql:" << sqlQuery;
 			return false;
 		} else {
-			log_warn("affected_rows=0, sql: %s\n\n", sqlQuery.c_str());
+			LOG_WARN << "affected_rows=0, sql: " << sqlQuery.c_str();
 			return true;
 		}
 	}

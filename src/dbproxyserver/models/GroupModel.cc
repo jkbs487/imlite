@@ -173,7 +173,7 @@ void GroupModel::updateGroupChat(uint32_t groupId)
     DBConn* dbConn = dbPool_->getDBConn();
     if (dbConn) {
         uint32_t now = static_cast<uint32_t>(time(NULL));
-        string strSql = "update IMGroup set lastChated=" + std::to_string(now) + " where id=" + std::to_string(groupId);
+        string strSql = "UPDATE IMGroup SET lastChated=" + std::to_string(now) + " where id=" + std::to_string(groupId);
         dbConn->executeUpdate(strSql);
         dbPool_->relDBConn(dbConn);
     } else {

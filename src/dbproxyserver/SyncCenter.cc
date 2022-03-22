@@ -111,7 +111,7 @@ void SyncCenter::updateTotalUpdate(uint32_t updated)
 {
     CacheConn* cacheConn = cachePool_->getCacheConn();
     if (cacheConn) {
-        //lock
+        //TODO: lock
         {
             lastUpdate_ = updated;
         }
@@ -141,8 +141,7 @@ void SyncCenter::updateLastUpdateGroup(uint32_t updated)
         cacheConn->set("last_update_group", strUpdated);
         cachePool_->relCacheConn(cacheConn);
     }
-    else
-    {
+    else {
         LOG_ERROR << "no cache connection to get total_user_updated";
     }
 }
