@@ -18,14 +18,14 @@ void FileModel::getOfflineFile(uint32_t userId, list<IM::BaseDefine::OfflineFile
 {
     DBConn* dbConn = dbPool_->getDBConn();
     if (dbConn) {
-        string strSql = "select * from IMTransmitFile where toId="+std::to_string(userId) + " and status=0 order by created";
+        string strSql = "select * from IMTransmitFile where to_id="+std::to_string(userId) + " and status=0 order by created";
         ResultSet* resultSet = dbConn->executeQuery(strSql);
         if (resultSet) {
             while (resultSet->next()) {
                 IM::BaseDefine::OfflineFileInfo offlineFile;
-                offlineFile.set_from_user_id(resultSet->getInt("fromId"));
-                offlineFile.set_task_id(resultSet->getString("taskId"));
-                offlineFile.set_file_name(resultSet->getString("fileName"));
+                offlineFile.set_from_user_id(resultSet->getInt("from_id"));
+                offlineFile.set_task_id(resultSet->getString("task_id"));
+                offlineFile.set_file_name(resultSet->getString("filename"));
                 offlineFile.set_file_size(resultSet->getInt("size"));
                 offlines.push_back(offlineFile);
             }
@@ -43,7 +43,7 @@ void FileModel::addOfflineFile(uint32_t fromId, uint32_t toId, string& taskId, s
 {
     DBConn* dbConn = dbPool_->getDBConn();
     if (dbConn) {
-        string strSql = "insert into IMTransmitFile (`fromId`,`toId`,`fileName`,`size`,`taskId`,`status`,`created`,`updated`) values(?,?,?,?,?,?,?,?)";
+        string strSql = "insert into IMTransmitFile (`from_id`,`to_id`,`filename`,`size`,`task_id`,`status`,`created`,`updated`) values(?,?,?,?,?,?,?,?)";
         
         // 必须在释放连接前delete CPrepareStatement对象，否则有可能多个线程操作mysql对象，会crash
         PrepareStatement* stmt = new PrepareStatement();

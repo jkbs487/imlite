@@ -50,6 +50,11 @@ TCPConnectionPtr getRandomRouteConn()
     return getRandomConn(g_routeConns, 0, g_routeConns.size()-1);
 }
 
+TCPConnectionPtr getRandomFileConn()
+{
+    return getRandomConn(g_fileConns, 0, g_fileConns.size()-1);
+}
+
 int main(int argc, char* argv[])
 {
     if (argc == 2) {
@@ -57,7 +62,7 @@ int main(int argc, char* argv[])
         EventLoop loop;
         IM::MsgServer msgServer("0.0.0.0", static_cast<uint16_t>(atoi(argv[1])), &loop);
         g_msgServer = &msgServer;
-        IM::LoginClient loginClient("127.0.0.1", 10001, &loop);
+        IM::LoginClient loginClient("0.0.0.0", 10001, &loop);
         IM::DBProxyClient dbProxyClient("127.0.0.1", 10003, &loop);
         IM::RouteClient routeClient("127.0.0.1", 10004, &loop);
         msgServer.start();
