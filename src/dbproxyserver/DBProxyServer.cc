@@ -70,6 +70,7 @@ DBProxyServer::DBProxyServer(std::string host, uint16_t port, EventLoop* loop):
         std::bind(&DBProxyServer::onFileHasOfflineRequest, this, _1, _2, _3));
 
     loop_->runEvery(1.0, std::bind(&DBProxyServer::onTimer, this));
+    server_.setThreadNum(4);
     threadPool_.setMaxQueueSize(10);
     syncCenter->startSync();
     syncCenter->init();
