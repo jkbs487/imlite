@@ -18,7 +18,7 @@ void FileModel::getOfflineFile(uint32_t userId, list<IM::BaseDefine::OfflineFile
 {
     DBConn* dbConn = dbPool_->getDBConn();
     if (dbConn) {
-        string strSql = "select * from IMTransmitFile where to_id="+std::to_string(userId) + " and status=0 order by created";
+        string strSql = "SELECT * FROM IMTransmitFile WHERE to_id="+std::to_string(userId) + " AND status=0 order by created";
         ResultSet* resultSet = dbConn->executeQuery(strSql);
         if (resultSet) {
             while (resultSet->next()) {
@@ -68,6 +68,22 @@ void FileModel::addOfflineFile(uint32_t fromId, uint32_t toId, string& taskId, s
             }
         }
         delete stmt;
+        dbPool_->relDBConn(dbConn);
+    } else {
+        LOG_ERROR << "no db connection for teamtalk_master";
+    }
+}
+
+void FileModel::delOfflineFile(uint32_t fromId, uint32_t toId, string& taskId)
+{
+    DBConn* dbConn = dbPool_->getDBConn();
+    if (dbConn) {
+        string strSql = "DELETE FROM IMTransmitFile WHERE from_id=" + std::to_string(fromId) + " and to_id=" + std::to_string(toId) + " and task_id='" + taskId + "'";
+        if (dbConn->executeUpdate(strSql)) {
+            LOG_INFO << "delete offline file success." << fromId << "->" << toId << ":" << taskId;
+        } else {
+            LOG_ERROR << "delete offline file failed." << fromId << "->" << toId << ":" << taskId;
+        }
         dbPool_->relDBConn(dbConn);
     } else {
         LOG_ERROR << "no db connection for teamtalk_master";

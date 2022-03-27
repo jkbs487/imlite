@@ -59,6 +59,8 @@ private:
     void onGetDeviceTokenReq(const slite::TCPConnectionPtr& conn, const GetDeviceTokenReqPtr& message, int64_t receiveTime);
 
     void onFileHasOfflineRequest(const slite::TCPConnectionPtr& conn, const FileHasOfflineReqPtr& message, int64_t receiveTime);
+    void onFileAddOfflineRequest(const slite::TCPConnectionPtr& conn, const FileAddOfflineReqPtr& message, int64_t receiveTime);
+    void onFileDelOfflineRequest(const slite::TCPConnectionPtr& conn, const FileDelOfflineReqPtr& message, int64_t receiveTime);
 
     bool doLogin(const std::string &strName, const std::string &strPass, IM::BaseDefine::UserInfo& user);
 

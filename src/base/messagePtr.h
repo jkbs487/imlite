@@ -23,6 +23,8 @@ typedef std::shared_ptr<IM::Server::IMGetDeviceTokenReq> GetDeviceTokenReqPtr;
 typedef std::shared_ptr<IM::Server::IMGetDeviceTokenRsp> GetDeviceTokenRspPtr;
 typedef std::shared_ptr<IM::Server::IMFileTransferReq> FileTransferReqPtr;
 typedef std::shared_ptr<IM::Server::IMFileTransferRsp> FileTransferRspPtr;
+typedef std::shared_ptr<IM::Server::IMFileServerIPReq> FileServerIPReqPtr;
+typedef std::shared_ptr<IM::Server::IMFileServerIPRsp> FileServerIPRspPtr;
 
 typedef std::shared_ptr<IM::Buddy::IMDepartmentReq> DepartmentReqPtr;
 typedef std::shared_ptr<IM::Buddy::IMDepartmentRsp> DepartmentRspPtr;
@@ -58,8 +60,11 @@ typedef std::shared_ptr<IM::Message::IMClientTimeReq> ClientTimeReqPtr;
 typedef std::shared_ptr<IM::Message::IMClientTimeRsp> ClientTimeRspPtr;
 typedef std::shared_ptr<IM::Message::IMGetLatestMsgIdReq> GetLatestMsgIdReqPtr;
 
+typedef std::shared_ptr<IM::File::IMFileReq> FileReqPtr;
 typedef std::shared_ptr<IM::File::IMFileHasOfflineReq> FileHasOfflineReqPtr;
 typedef std::shared_ptr<IM::File::IMFileHasOfflineRsp> FileHasOfflineRspPtr;
+typedef std::shared_ptr<IM::File::IMFileAddOfflineReq> FileAddOfflineReqPtr;
+typedef std::shared_ptr<IM::File::IMFileDelOfflineReq> FileDelOfflineReqPtr;
 typedef std::shared_ptr<IM::File::IMFileLoginReq> FileLoginReqPtr;
 typedef std::shared_ptr<IM::File::IMFileLoginRsp> FileLoginRspPtr;
 typedef std::shared_ptr<IM::File::IMFileState> FileStatePtr;

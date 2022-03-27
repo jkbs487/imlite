@@ -68,6 +68,10 @@ DBProxyServer::DBProxyServer(std::string host, uint16_t port, EventLoop* loop):
 
     dispatcher_.registerMessageCallback<IM::File::IMFileHasOfflineReq>(
         std::bind(&DBProxyServer::onFileHasOfflineRequest, this, _1, _2, _3));
+    dispatcher_.registerMessageCallback<IM::File::IMFileAddOfflineReq>(
+        std::bind(&DBProxyServer::onFileAddOfflineRequest, this, _1, _2, _3));
+    dispatcher_.registerMessageCallback<IM::File::IMFileDelOfflineReq>(
+        std::bind(&DBProxyServer::onFileDelOfflineRequest, this, _1, _2, _3));
 
     loop_->runEvery(1.0, std::bind(&DBProxyServer::onTimer, this));
     server_.setThreadNum(4);
@@ -859,6 +863,36 @@ void DBProxyServer::onFileHasOfflineRequest(const slite::TCPConnectionPtr& conn,
     resp.set_attach_data(message->attach_data());
     codec_.send(conn, resp);
 }
+
+void DBProxyServer::onFileAddOfflineRequest(const slite::TCPConnectionPtr& conn, 
+                                            const FileAddOfflineReqPtr& message, 
+                                            int64_t receiveTime)
+{
+    uint32_t userId = message->from_user_id();
+    uint32_t toId = message->to_user_id();
+    string taskId = message->task_id();
+    string fileName = message->file_name();
+    uint32_t fileSize = message->file_size();
+
+    FileModel fileModel(dbPool_, cachePool_);
+    fileModel.addOfflineFile(userId, toId, taskId, fileName, fileSize);
+    LOG_INFO << "fromId=" << userId << ", toId=" 
+        << toId << ", taskId=" << taskId << ", fileName=" 
+        << fileName << ", fileSize=" << fileSize;
+}
+void DBProxyServer::onFileDelOfflineRequest(const slite::TCPConnectionPtr& conn, 
+                                            const FileDelOfflineReqPtr& message, 
+                                            int64_t receiveTime)
+{
+    uint32_t userId = message->from_user_id();
+    uint32_t toId = message->to_user_id();
+    string taskId = message->task_id();
+
+    FileModel fileModel(dbPool_, cachePool_);
+    fileModel.delOfflineFile(userId, toId, taskId);
+    LOG_INFO << "fromId=" << userId << ", toId=" << toId << ", taskId=" << taskId;
+}
+
 
 int main()
 {

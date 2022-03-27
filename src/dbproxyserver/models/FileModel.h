@@ -10,6 +10,7 @@ public:
 
     void getOfflineFile(uint32_t userId, list<IM::BaseDefine::OfflineFileInfo>& offlines);
     void addOfflineFile(uint32_t fromId, uint32_t toId, string& taskId, string& fileName, uint32_t fileSize);
+    void delOfflineFile(uint32_t fromId, uint32_t toId, string& taskId);
 
 private:
 
