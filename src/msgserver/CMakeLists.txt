@@ -4,6 +4,7 @@ set(msgserver_SRCS
     DBProxyClient.cc
     LoginClient.cc
     RouteClient.cc
+    FileClient.cc
     ImUser.cc
     ../base/protobuf_codec.cc
 )

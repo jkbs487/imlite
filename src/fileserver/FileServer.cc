@@ -52,12 +52,12 @@ void FileServer::onTimer()
         if (context->transferTask && context->transferTask->getTransMode()== IM::BaseDefine::FILE_TYPE_ONLINE) {
             if (context->transferTask->state() == kTransferTaskStateInvalid) {
                 LOG_INFO << "Close another online conn, userId=" << context->userId;
-                conn->shutdown();
+                conn->forceClose();
                 return;
             }
         }
         if (currTick > context->lastRecvTick + kTimeout) {
-            LOG_ERROR << "Connect to MsgServer timeout";
+            LOG_ERROR << "Connect to client timeout";
             conn->forceClose();
         }
     }
@@ -89,6 +89,7 @@ void FileServer::onConnection(const TCPConnectionPtr& conn)
         }
         context->auth = false;
         clientConns_.erase(conn);
+        delete context;
     }
 }
 
@@ -124,6 +125,7 @@ void FileServer::onHeartBeat(const TCPConnectionPtr& conn,
     //LOG_INFO << "onHeartBeat: " << message->GetTypeName();
     Context* context = std::any_cast<Context*>(conn->getContext());
     context->lastRecvTick = receiveTime;
+    codec_.send(conn, *message.get());
 }
 
 void FileServer::onFileLoginRequest(const slite::TCPConnectionPtr& conn, 
@@ -159,7 +161,7 @@ void FileServer::onFileLoginRequest(const slite::TCPConnectionPtr& conn,
             return;
         }
     }
-    
+
     // 状态转换
     bool rv = transferTask->changePullState(userId, mode);
     if (!rv) {
@@ -189,7 +191,7 @@ void FileServer::onFileLoginRequest(const slite::TCPConnectionPtr& conn,
                     statesNotify(IM::BaseDefine::ClientFileState::CLIENT_FILE_PEER_READY, taskId, context->transferTask->fromUserId(), toConn);
                 } else {
                     LOG_ERROR << "to_conn is close, close me!!!";
-                    conn->shutdown();
+                    conn->forceClose();
                 }
             }
         } else {
@@ -207,7 +209,7 @@ void FileServer::onFileLoginRequest(const slite::TCPConnectionPtr& conn,
             }
         }
     } else {
-        conn->shutdown();
+        conn->forceClose();
     }
 }
 
@@ -246,6 +248,7 @@ void FileServer::onFileState(const slite::TCPConnectionPtr& conn,
         LOG_ERROR << "Received userId valid, recv userId=" << userId 
             << ", transferTask.userId=" << context->transferTask->fromUserId() 
             << ", conn userId = " << context->userId;
+        conn->forceClose();
         return;
     }
     
@@ -253,6 +256,7 @@ void FileServer::onFileState(const slite::TCPConnectionPtr& conn,
     if (context->transferTask->taskId() != taskId) {
         LOG_ERROR << "Received taskId valid, recv taskId=" 
             << taskId << ", this taskId=" << context->transferTask->taskId();
+        conn->forceClose();
         return;
     }
 
@@ -264,7 +268,7 @@ void FileServer::onFileState(const slite::TCPConnectionPtr& conn,
             TCPConnectionPtr imConn = context->transferTask->getOpponentConn(userId);
             if (imConn) {
                 codec_.send(imConn, *message.get());
-                LOG_ERROR << "Task " << taskId << " " << fileStat 
+                LOG_INFO << "Task " << taskId << " " << fileStat 
                     << " by userId " << userId << " notify " 
                     << context->transferTask->getOpponent(userId) << ", erased";
             }
@@ -273,7 +277,7 @@ void FileServer::onFileState(const slite::TCPConnectionPtr& conn,
             // pConn->SendPdu(pPdu);
             
             // TransferTaskManager::GetInstance()->DeleteTransferTask(taskId);
-            return;
+            break;
         }
             
         default:
@@ -281,7 +285,7 @@ void FileServer::onFileState(const slite::TCPConnectionPtr& conn,
             break;
     }
 
-    conn->shutdown();
+    conn->forceClose();
 }
 
 // data handler async
@@ -324,6 +328,7 @@ void FileServer::onFilePullDataRequest(const slite::TCPConnectionPtr& conn,
         LOG_ERROR << "Received userId valid, recv userId=" << userId 
             << ", transferTask.userId=" << context->transferTask->fromUserId() 
             << ", conn userId = " << context->userId;
+        conn->forceClose();
         return;
     }
     
@@ -331,6 +336,7 @@ void FileServer::onFilePullDataRequest(const slite::TCPConnectionPtr& conn,
     if (context->transferTask->taskId() != taskId) {
         LOG_ERROR << "Received taskId valid, recv taskId=" 
             << taskId << ", this taskId=" << context->transferTask->taskId();
+        conn->forceClose();
         return;
     }
     
@@ -341,13 +347,14 @@ void FileServer::onFilePullDataRequest(const slite::TCPConnectionPtr& conn,
         LOG_ERROR << "userId equal transfer_task.to_user_id, but userId=" 
             << userId << ", transfer_task.to_user_id=" 
             << context->transferTask->toUserId();
+        conn->forceClose();
         return;
     }
     
-    bool rv = context->transferTask->doPullFileRequest(userId, offset, datasize, resp.mutable_file_data());
+    int rv = context->transferTask->doPullFileRequest(userId, offset, datasize, resp.mutable_file_data());
     if (rv == -1) {
         LOG_ERROR << "doPullFileRequest fail";
-        conn->shutdown();
+        conn->forceClose();
         return;
     }
     
@@ -355,7 +362,7 @@ void FileServer::onFilePullDataRequest(const slite::TCPConnectionPtr& conn,
 
     // online task just forword message to ToUser
     if (context->transferTask->getTransMode() == IM::BaseDefine::FILE_TYPE_ONLINE) {
-        OnlineTransferTask* online = dynamic_cast<OnlineTransferTask*>(context->transferTask);
+        //OnlineTransferTask* online = dynamic_cast<OnlineTransferTask*>(context->transferTask);
         TCPConnectionPtr imConn = context->transferTask->getOpponentConn(userId);
         if (conn) {
             codec_.send(imConn, *message.get());
@@ -393,6 +400,7 @@ void FileServer::onFilePullDataResponse(const slite::TCPConnectionPtr& conn,
         LOG_ERROR << "Received userId valid, recv userId=" 
             << userId << ", transferTask.userId=" << context->transferTask->fromUserId()
             << "this userId=" << context->userId;
+        conn->shutdown();
         return;
     }
     
@@ -400,17 +408,19 @@ void FileServer::onFilePullDataResponse(const slite::TCPConnectionPtr& conn,
     if (context->transferTask->taskId() != taskId) {
         LOG_ERROR << "Received taskId valid, recv taskId=" 
             << taskId << ", this taskId=" << context->transferTask->taskId();
+        conn->shutdown();
         return;
     }
     
     int rv = context->transferTask->doRecvData(userId, offset, data, datasize);
     if (rv == -1) {
+        conn->shutdown();
         return;
     }
     
     if (context->transferTask->getTransMode() == IM::BaseDefine::FILE_TYPE_ONLINE) {
         // 对于在线，直接转发
-        OnlineTransferTask* online = dynamic_cast<OnlineTransferTask*>(context->transferTask);
+        //OnlineTransferTask* online = dynamic_cast<OnlineTransferTask*>(context->transferTask);
         TCPConnectionPtr imConn = context->transferTask->getToConn();
         if (imConn) {
             codec_.send(imConn, *message.get());
@@ -420,7 +430,6 @@ void FileServer::onFilePullDataResponse(const slite::TCPConnectionPtr& conn,
         // all packages recved
         if (rv == 1) {
             statesNotify(IM::BaseDefine::CLIENT_FILE_DONE, taskId, userId, conn);
-            // Close();
         } else {
             OfflineTransferTask* offline = dynamic_cast<OfflineTransferTask*>(context->transferTask);
             
@@ -437,15 +446,6 @@ void FileServer::onFilePullDataResponse(const slite::TCPConnectionPtr& conn,
     if (rv != 0) {
         // -1，出错关闭
         //  1, 离线上传完成
-        conn->shutdown();
+        conn->forceClose();
     }
-}
-
-int main(int argc, char* argv[])
-{
-    Logger::setLogLevel(Logger::DEBUG);
-    EventLoop loop;
-    FileServer fileServer("0.0.0.0", 10004, &loop);
-    fileServer.start();
-    loop.loop();
 }

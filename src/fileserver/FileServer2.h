@@ -3,9 +3,9 @@
 #include "slite/TCPClient.h"
 #include "slite/EventLoop.h"
 #include "slite/protobuf/dispatcher.h"
+#include "slite/protobuf/codec.h"
 
 #include "base/messagePtr.h"
-#include "base/protobuf_codec.h"
 #include "TransferTask.h"
 
 #include <set>
@@ -14,11 +14,11 @@
 
 namespace IM {
 
-class FileServer
+class FileServer2
 {
 public:
-    FileServer(std::string host, uint16_t port, slite::EventLoop* loop);
-    ~FileServer();
+    FileServer2(std::string host, uint16_t port, slite::EventLoop* loop);
+    ~FileServer2();
 
     void start() { server_.start(); }
     std::string host() { return server_.host(); }
@@ -42,16 +42,14 @@ private:
 
     void onUnknownMessage(const slite::TCPConnectionPtr& conn, const MessagePtr& message, int64_t receiveTime);
     void onHeartBeat(const slite::TCPConnectionPtr& conn, const MessagePtr& message, int64_t receiveTime);
-    void onFileLoginRequest(const slite::TCPConnectionPtr& conn, const FileLoginReqPtr& message, int64_t receiveTime);
-    void onFileState(const slite::TCPConnectionPtr& conn, const FileStatePtr& message, int64_t receiveTime);
-    void onFilePullDataRequest(const slite::TCPConnectionPtr& conn, const FilePullDataReqPtr& message, int64_t receiveTime);
-    void onFilePullDataResponse(const slite::TCPConnectionPtr& conn, const FilePullDataRspPtr& message, int64_t receiveTime);
-    int statesNotify(int state, const std::string& taskId, uint32_t userId, const slite::TCPConnectionPtr& conn);
+
+    void onFileTransferRequest(const slite::TCPConnectionPtr& conn, const FileTransferReqPtr& message, int64_t receiveTime);
+    void onGetServerAddressRequest(const slite::TCPConnectionPtr& conn, const FileServerIPReqPtr& message, int64_t receiveTime);
 
     slite::TCPServer server_;
     slite::EventLoop *loop_;
     ProtobufDispatcher dispatcher_;
-    IM::ProtobufCodec codec_;
+    slite::ProtobufCodec codec_;
     std::set<slite::TCPConnectionPtr> clientConns_;
 
     static const int kHeartBeatInterVal = 5000;
