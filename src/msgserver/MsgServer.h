@@ -23,6 +23,7 @@ extern std::set<slite::TCPConnectionPtr> g_fileConns;
 extern slite::TCPConnectionPtr getRandomRouteConn();
 extern slite::TCPConnectionPtr getRandomDBProxyConn();
 extern slite::TCPConnectionPtr getRandomDBProxyConnForLogin();
+extern slite::TCPConnectionPtr getRandomFileConn();
 
 namespace IM {
 
@@ -68,7 +69,10 @@ private:
     void onClientTimeRequest(const slite::TCPConnectionPtr& conn, const ClientTimeReqPtr& message, int64_t receiveTime);
     void onGetLatestMsgIDReq(const slite::TCPConnectionPtr& conn, const GetLatestMsgIdReqPtr& message, int64_t receiveTime);
 
+    void onFileRequest(const slite::TCPConnectionPtr& conn, const FileReqPtr& message, int64_t receiveTime);
     void onFileHasOfflineRequest(const slite::TCPConnectionPtr& conn, const FileHasOfflineReqPtr& message, int64_t receiveTime);
+    void onFileAddOfflineRequest(const slite::TCPConnectionPtr& conn, const FileAddOfflineReqPtr& message, int64_t receiveTime);
+    void onFileDelOfflineRequest(const slite::TCPConnectionPtr& conn, const FileDelOfflineReqPtr& message, int64_t receiveTime);
 
     void onP2PCmdMsg(const slite::TCPConnectionPtr& conn, const P2PCmdMsgPtr& message, int64_t receiveTime);
 

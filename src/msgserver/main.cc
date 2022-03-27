@@ -2,6 +2,7 @@
 #include "LoginClient.h"
 #include "DBProxyClient.h"
 #include "RouteClient.h"
+#include "FileClient.h"
 
 #include "slite/Logger.h"
 
@@ -65,10 +66,12 @@ int main(int argc, char* argv[])
         IM::LoginClient loginClient("0.0.0.0", 10001, &loop);
         IM::DBProxyClient dbProxyClient("127.0.0.1", 10003, &loop);
         IM::RouteClient routeClient("127.0.0.1", 10004, &loop);
+        IM::FileClient fileClient("127.0.0.1", 10008, &loop);
         msgServer.start();
         loginClient.connect();
         dbProxyClient.connect();
         routeClient.connect();
+        fileClient.connect();
         loop.loop();
     }
 }

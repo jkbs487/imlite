@@ -4,7 +4,7 @@
 #include <string>
 #include <sys/time.h>
 
-#define MAX_MSG_CNT_PER_SECOND			20	// user can not send more than 20 msg in one second
+#define MAX_MSG_CNT_PER_SECOND 20	// user can not send more than 20 msg in one second
 
 extern uint32_t g_downMsgTotalCnt;
 

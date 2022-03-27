@@ -1,6 +1,7 @@
 #include "DBProxyClient.h"
 #include "slite/Logger.h"
 #include "ImUser.h"
+#include "FileConnInfo.h"
 
 #include <sys/time.h>
 
@@ -704,14 +705,14 @@ void DBProxyClient::onFileHasOfflineResponse(const slite::TCPConnectionPtr& conn
     
     TCPConnectionPtr msgConn = ImUserManager::getInstance()->getMsgConnByHandle(userId, message->attach_data());
     TCPConnectionPtr fileConn = getRandomFileConn();
-    //const list<IM::BaseDefine::IpAddr>* ips = nullptr;
     if (fileConn) {
-        // ips = fileConn->GetFileServerIPList();
-        // for (const auto& ip : ips) {
-        //     IM::BaseDefine::IpAddr* ip_addr = message->add_ip_addr_list();
-        //     ip_addr->set_ip(ip.ip());
-        //     ip_addr->set_port(ip.port());
-        // }
+        FileConnInfo* fileInfo = std::any_cast<FileConnInfo*>(fileConn->getContext());
+        list<IM::BaseDefine::IpAddr> ips = fileInfo->ipAddrList();
+        for (const auto& ip : ips) {
+            IM::BaseDefine::IpAddr* ip_addr = message->add_ip_addr_list();
+            ip_addr->set_ip(ip.ip());
+            ip_addr->set_port(ip.port());
+        }
     }
     else {
         LOG_ERROR << "HandleFileHasOfflineRes, no file server.";

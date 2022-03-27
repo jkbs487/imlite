@@ -3,6 +3,7 @@
 #include "slite/Logger.h"
 #include "ImUser.h"
 #include "ClientConnInfo.h"
+#include "FileConnInfo.h"
 
 #include <sys/time.h>
 
@@ -56,7 +57,6 @@ MsgServer::MsgServer(std::string host, uint16_t port, EventLoop* loop):
     dispatcher_.registerMessageCallback<IM::Group::IMGroupInfoListReq>(
         std::bind(&MsgServer::onGroupInfoListRequest, this, _1, _2, _3));
 
-
     dispatcher_.registerMessageCallback<IM::Message::IMMsgData>(
         std::bind(&MsgServer::onMsgData, this, _1, _2, _3));
     dispatcher_.registerMessageCallback<IM::Message::IMMsgDataAck>(
@@ -72,6 +72,12 @@ MsgServer::MsgServer(std::string host, uint16_t port, EventLoop* loop):
 
     dispatcher_.registerMessageCallback<IM::File::IMFileHasOfflineReq>(
         std::bind(&MsgServer::onFileHasOfflineRequest, this, _1, _2, _3));
+    dispatcher_.registerMessageCallback<IM::File::IMFileReq>(
+        std::bind(&MsgServer::onFileRequest, this, _1, _2, _3));
+    dispatcher_.registerMessageCallback<IM::File::IMFileAddOfflineReq>(
+        std::bind(&MsgServer::onFileAddOfflineRequest, this, _1, _2, _3));
+    dispatcher_.registerMessageCallback<IM::File::IMFileDelOfflineReq>(
+        std::bind(&MsgServer::onFileDelOfflineRequest, this, _1, _2, _3));
 
     dispatcher_.registerMessageCallback<IM::SwitchService::IMP2PCmdMsg>(
         std::bind(&MsgServer::onP2PCmdMsg, this, _1, _2, _3));
@@ -174,6 +180,8 @@ void MsgServer::onConnection(const TCPConnectionPtr& conn)
                 ImUserManager::getInstance()->removeImUser(user);
             }
         }
+        // TODO: memory leak
+        delete clientInfo;
     }
 }
 
@@ -363,7 +371,7 @@ void MsgServer::onFileHasOfflineRequest(const TCPConnectionPtr& conn,
     if (dbConn) {
         IM::File::IMFileHasOfflineReq msg;
         msg.set_user_id(userId);
-        msg.set_attach_data(message->attach_data());
+        msg.set_attach_data(conn->name());
         codec_.send(dbConn, msg);
     } else {
         LOG_ERROR << "warning no DB connection available ";
@@ -654,7 +662,131 @@ void MsgServer::onGroupInfoListRequest(const slite::TCPConnectionPtr& conn,
     }
 }
 
+void MsgServer::onFileRequest(const slite::TCPConnectionPtr& conn, 
+                            const FileReqPtr& message, 
+                            int64_t receiveTime)
+{
+    ClientConnInfo* clientInfo = std::any_cast<ClientConnInfo*>(conn->getContext());
+    uint32_t fromId = clientInfo->userId();
+    uint32_t toId = message->to_user_id();
+    string fileName = message->file_name();
+    uint32_t fileSize = message->file_size();
+    uint32_t transMode = message->trans_mode();
+    LOG_INFO << "onFileRequest, " << fromId << "-> " << toId 
+        << ", fileName=" << fileName << ", transMode=" << transMode;
+    
+    TCPConnectionPtr fileConn = getRandomFileConn();
+    if (fileConn) {
+        IM::Server::IMFileTransferReq msg2;
+        msg2.set_from_user_id(fromId);
+        msg2.set_to_user_id(toId);
+        msg2.set_file_name(fileName);
+        msg2.set_file_size(fileSize);
+        msg2.set_trans_mode((IM::BaseDefine::TransferFileType)transMode);
+        msg2.set_attach_data(conn->name());
+ 
+        if (IM::BaseDefine::FILE_TYPE_OFFLINE == transMode) {
+            codec_.send(fileConn, msg2);
+        }
+        else {//IM::BaseDefine::FILE_TYPE_ONLINE
+            ImUser* user = ImUserManager::getInstance()->getImUserById(toId);
+            if (user && user->getPCLoginStatus()) {//已有对应的账号pc登录状态
+                codec_.send(fileConn, msg2);
+            } else {//无对应用户的pc登录状态,向route_server查询状态
+                //no pc_client in this msg_server, check it from route_server
+                //CPduAttachData attach_data(ATTACH_TYPE_HANDLE_AND_PDU_FOR_FILE, pMsgConn->GetHandle(), pdu.GetBodyLength(), pdu.GetBodyData());
+                IM::Buddy::IMUsersStatReq msg3;
+                msg3.set_user_id(fromId);
+                msg3.add_user_id_list(toId);
+                msg3.set_attach_data("");
+                TCPConnectionPtr routeConn = getRandomRouteConn();
+                if (routeConn) {
+                    codec_.send(routeConn, msg3);
+                }
+            }
+        }
+    } else {
+        LOG_WARN << "onFileRequest, no file server.";
+        IM::File::IMFileRsp msg2;
+        msg2.set_result_code(1);
+        msg2.set_from_user_id(fromId);
+        msg2.set_to_user_id(toId);
+        msg2.set_file_name(fileName);
+        msg2.set_task_id("");
+        msg2.set_trans_mode(static_cast<IM::BaseDefine::TransferFileType>(transMode));
+        codec_.send(conn, msg2);
+    }
+}
+
 void MsgServer::onClientTimeRequest(const slite::TCPConnectionPtr& conn, const ClientTimeReqPtr& message, int64_t receiveTime)
 {
     return;
+}
+
+void MsgServer::onFileAddOfflineRequest(const slite::TCPConnectionPtr& conn, 
+                                        const FileAddOfflineReqPtr& message, 
+                                        int64_t receiveTime)
+{
+    ClientConnInfo* clientInfo = std::any_cast<ClientConnInfo*>(conn->getContext());
+    uint32_t fromId = clientInfo->userId();
+    uint32_t toId = message->to_user_id();
+    string taskId = message->task_id();
+    string fileName = message->file_name();
+    uint32_t fileSize = message->file_size();
+    LOG_INFO << "onFileAddOfflineRequest, " << fromId << "->" << toId 
+        << ", taskId=" << taskId << ", fileName=" << fileName << ", size=" << fileSize;
+    
+    TCPConnectionPtr dbConn = getRandomDBProxyConn();
+    if (dbConn) {
+        message->set_from_user_id(fromId);
+        codec_.send(dbConn, *message.get());
+    }
+    
+    TCPConnectionPtr fileConn = getRandomFileConn();
+    if (fileConn) {
+        FileConnInfo* fileInfo = std::any_cast<FileConnInfo*>(fileConn->getContext());
+        list<IM::BaseDefine::IpAddr> fileAddrList = fileInfo->ipAddrList();
+        
+        IM::File::IMFileNotify msg2;
+        msg2.set_from_user_id(fromId);
+        msg2.set_to_user_id(toId);
+        msg2.set_file_name(fileName);
+        msg2.set_file_size(fileSize);
+        msg2.set_task_id(taskId);
+        msg2.set_trans_mode(IM::BaseDefine::FILE_TYPE_OFFLINE);
+        msg2.set_offline_ready(1);
+        for (const auto& fileAddr : fileAddrList) {
+            IM::BaseDefine::IpAddr* addr = msg2.add_ip_addr_list();
+            addr->set_ip(fileAddr.ip());
+            addr->set_port(fileAddr.port());
+        }
+        
+        ImUser* user = ImUserManager::getInstance()->getImUserById(toId);
+        if (user) {
+            //to user is online, notify the offline file has been ready
+            user->broadcastMsgWithOutMobile(std::make_shared<IM::File::IMFileNotify>(msg2));
+        }
+
+        TCPConnectionPtr routeConn = getRandomRouteConn();
+        if (routeConn) {
+            codec_.send(routeConn, msg2);
+        }
+    }
+}
+
+void MsgServer::onFileDelOfflineRequest(const slite::TCPConnectionPtr& conn, 
+                                        const FileDelOfflineReqPtr& message, 
+                                        int64_t receiveTime)
+{
+    uint32_t fromId = message->from_user_id();
+    uint32_t toId = message->to_user_id();
+    string taskId = message->task_id();
+
+    LOG_INFO << "onFileDelOfflineRequest, " << fromId << "->" << toId << ", taskId=" << taskId;
+
+    TCPConnectionPtr dbConn = getRandomDBProxyConn();
+    if (dbConn) {
+        message->set_from_user_id(fromId);
+        codec_.send(dbConn, *message.get());
+    }
 }
