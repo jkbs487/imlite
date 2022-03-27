@@ -47,7 +47,7 @@ RouteServer::RouteServer(std::string host, uint16_t port, EventLoop* loop):
         std::bind(&RouteServer::onDefaultMessage, this, _1, _2, _3));
     dispatcher_.registerMessageCallback<IM::Buddy::IMRemoveSessionNotify>(
         std::bind(&RouteServer::onDefaultMessage, this, _1, _2, _3));
-    dispatcher_.registerMessageCallback<IM::Buddy::IMAvatarChangedNotify>(
+    dispatcher_.registerMessageCallback<IM::Buddy::IMSignInfoChangedNotify>(
         std::bind(&RouteServer::onDefaultMessage, this, _1, _2, _3)); // TODO
 
     loop_->runEvery(1.0, std::bind(&RouteServer::onTimer, this));
@@ -90,6 +90,15 @@ void RouteServer::onConnection(const TCPConnectionPtr& conn)
         clientConns_.insert(conn);
     } else {
         clientConns_.erase(conn);
+        for (const auto& userManager : userManagerMap_) {
+            UserManager* user = userManager.second;
+            user->removeRouteConn(conn);
+            if (!user->getRouteConnCount()) {
+                delete user;
+                user = nullptr;
+                userManagerMap_.erase(userManager.first);
+            }
+        }
     }
 }
 

@@ -58,7 +58,7 @@ private:
     ProtobufDispatcher dispatcher_;
     slite::ProtobufCodec codec_;
     std::set<slite::TCPConnectionPtr> clientConns_;
-    UserManagerMap userManagerMap_;
+    UserManagerMap userManagerMap_; // userId userMagager
 
     static const int kHeartBeatInterVal = 5000;
     static const int kTimeout = 30000;
