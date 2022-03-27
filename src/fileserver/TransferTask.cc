@@ -32,20 +32,20 @@ std::string generateUUID() {
     return rv;
 }
 
-const char* getCurrentOfflinePath() {
-    static const char* g_currentSavePath = nullptr;
-    if (g_currentSavePath == nullptr) {
-        static char s_tmp[BUFSIZ];
+std::string getCurrentOfflinePath() {
+    static std::string g_currentSavePath;
+    if (g_currentSavePath.empty()) {
+        static std::string s_tmp;
         char workPath[BUFSIZ];
         if (!getcwd(workPath, BUFSIZ)) {
             LOG_ERROR << "getcwd " << workPath << " failed";
         } else {
-            snprintf(s_tmp, BUFSIZ, "%s/offline_file", workPath);
+            s_tmp = std::string(workPath) + "/offline_file";
         }
         
         LOG_INFO << "save offline files to " << s_tmp;
         
-        int ret = mkdir(s_tmp, 0755);
+        int ret = ::mkdir(s_tmp.c_str(), 0755);
         if ((ret != 0) && (errno != EEXIST)) {
             LOG_ERROR << "mkdir " << s_tmp << " failed to save offline files";
         }
@@ -58,9 +58,9 @@ const char* getCurrentOfflinePath() {
 static FILE* openByRead(const std::string& taskId, uint32_t userId) {
     FILE* fp = nullptr;
     if (taskId.length() >= 2) {
-        char savePath[BUFSIZ];
-        snprintf(savePath, BUFSIZ, "%s/%s/%s", getCurrentOfflinePath(), taskId.substr(0, 2).c_str() , taskId.c_str());
-        fp = fopen(savePath, "rb");  // save fp
+        std::string savePath;
+        savePath = getCurrentOfflinePath() + "/" + taskId.substr(0, 2) + "/" + taskId;
+        fp = fopen(savePath.c_str(), "rb");  // save fp
         if (!fp) {
             LOG_ERROR << "Open file " << savePath << " for read failed";
         }
@@ -71,17 +71,16 @@ static FILE* openByRead(const std::string& taskId, uint32_t userId) {
 static FILE* openByWrite(const std::string& taskId, uint32_t userId) {
     FILE* fp = nullptr;
     if (taskId.length() >= 2) {
-        char savePath[BUFSIZ];
-        snprintf(savePath, BUFSIZ, "%s/%s", getCurrentOfflinePath(), taskId.substr(0, 2).c_str());
-        int ret = mkdir(savePath, 0755);
+        std::string savePath;
+        savePath = getCurrentOfflinePath() + "/" + taskId.substr(0, 2);
+        int ret = ::mkdir(savePath.data(), 0755);
         if ( (ret != 0) && (errno != EEXIST) ) {
             LOG_ERROR << "mkdir failed for path: " << savePath;
         } else {
             // save as g_current_save_path/to_id_url/taskId
-            strncat(savePath, "/", BUFSIZ);
-            strncat(savePath, taskId.c_str(), BUFSIZ);
-            
-            fp = fopen(savePath, "ab+");
+            savePath += "/";
+            savePath += taskId;
+            fp = fopen(savePath.c_str(), "ab+");
             if (!fp) {
                 LOG_ERROR << "Open file for write failed";
             }
@@ -95,15 +94,15 @@ static FILE* openByWrite(const std::string& taskId, uint32_t userId) {
 //----------------------------------------------------------------------------
 BaseTransferTask::BaseTransferTask(const std::string& taskId, uint32_t fromUserId, uint32_t toUserId, const std::string& fileName, uint32_t fileSize)
     : taskId_(taskId),
-      fromUserId_(fromUserId),
-      toUserId_(toUserId),
-      fileName_(fileName),
-      fileSize_(fileSize),
-      state_(kTransferTaskStateReady),
-      createTime_(time(NULL)),
-      fromConn_(nullptr),
-      toConn_(nullptr)
-{             
+    fromUserId_(fromUserId),
+    toUserId_(toUserId),
+    fileName_(fileName),
+    fileSize_(fileSize),
+    createTime_(time(NULL)),
+    state_(kTransferTaskStateReady),
+    fromConn_(nullptr),
+    toConn_(nullptr)
+{
 }
 
 void BaseTransferTask::setLastUpdateTime() 
@@ -371,16 +370,15 @@ int OfflineTransferTask::doRecvData(uint32_t userId, uint32_t offset, const char
     LOG_INFO << "doRecvData, offset=" << offset << ", dataSize=" << dataSize << ", segment_size=" << sengmentSize_;
     
     if (state_ == kTransferTaskStateWaitingUpload) {
-        if (fp_ == NULL) {
+        if (fp_ == nullptr) {
             fp_ = openByWrite(taskId_, toUserId_);
-            if (fp_ == NULL) {
+            if (fp_ == nullptr) {
                 return -1;
             }
         }
 
         // 写文件头
-        OfflineFileHeader fileHeader;
-        memset(&fileHeader, 0, sizeof(fileHeader));
+        OfflineFileHeader fileHeader = {};
         fileHeader.setCreateTime(time(NULL));
         fileHeader.setTaskId(taskId_);
         fileHeader.setFromUserId(fromUserId_);
@@ -409,9 +407,9 @@ int OfflineTransferTask::doRecvData(uint32_t userId, uint32_t offset, const char
         fclose(fp_);
         fp_ = nullptr;
     } else {
-        return 1;
+        return 0;
     }
-    return 0;
+    return 1;
 }
 
 int OfflineTransferTask::doPullFileRequest(uint32_t userId, uint32_t offset, uint32_t dataSize, std::string* data) 
@@ -467,7 +465,7 @@ int OfflineTransferTask::doPullFileRequest(uint32_t userId, uint32_t offset, uin
     
     dataSize = getNextSegmentBlockSize();
     
-    LOG_INFO << "Ready send data, offset=" << offset << ", dataSize=%d" << dataSize;
+    LOG_INFO << "Ready send data, offset=" << offset << ", dataSize" << dataSize;
     
     // the header won't be sent to recver, because the msg svr had already notified it.
     // if the recver needs to check it, it could be helpful
@@ -502,10 +500,10 @@ int OfflineTransferTask::doPullFileRequest(uint32_t userId, uint32_t offset, uin
         fclose(fp_);
         fp_ = NULL;
     } else {
-        return 1;
+        return 0;
     }
 
-    return 0;
+    return 1;
 }
 
 
@@ -524,7 +522,7 @@ void TransferTaskManager::onTimer(uint64_t tick) {
         
         if (task->state() != kTransferTaskStateWaitingUpload &&
             task->state() == kTransferTaskStateTransferDone) {
-            long esp = time(NULL) - task->create_time();
+            long esp = time(NULL) - task->createTime();
             // ConfigUtil::getInstance()->GetTaskTimeout()
             if (esp > 3000) {
                 if (task->getFromConn()) {

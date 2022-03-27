@@ -42,7 +42,7 @@ struct OfflineFileHeader {
     }
     
     void setTaskId(std::string& taskId) {
-        strncpy(taskId_, taskId.c_str(), 128 < taskId.length() ? 128 : taskId.length());
+        memcpy(taskId_, taskId.c_str(), 128 < taskId.size()+1 ? 128 : taskId.size()+1);
     }
     
     void setFromUserId(uint32_t id) {
@@ -112,7 +112,7 @@ public:
     uint32_t fileSize() const { return fileSize_; }
     const std::string& fileName() const { return fileName_; }
     time_t createTime() const { return  createTime_; }
-    void setState(int state) { state_ = state; }
+    void setState(TransferTaskState state) { state_ = state; }
     int state() const { return state_; }
     
     uint32_t getOpponent(uint32_t userId) const 
@@ -156,7 +156,9 @@ public:
     
     bool isWaitTranfering() const {
         bool rv = false;
-        if (state_ == kTransferTaskStateWaitingTransfer || state_ == kTransferTaskStateWaitingUpload || kTransferTaskStateWaitingDownload) {
+        if (state_ == kTransferTaskStateWaitingTransfer || 
+            state_ == kTransferTaskStateWaitingUpload || 
+            state_ == kTransferTaskStateWaitingDownload) {
             rv = true;
         }
         return rv;
@@ -180,7 +182,7 @@ protected:
     uint32_t fileSize_;
     time_t createTime_;
 
-    int state_;         // 传输状态
+    TransferTaskState state_;         // 传输状态
 
     slite::TCPConnectionPtr fromConn_;
     slite::TCPConnectionPtr toConn_;
@@ -251,11 +253,11 @@ public:
     virtual int doRecvData(uint32_t userId, uint32_t offset, const char* data, uint32_t data_size);
     virtual int doPullFileRequest(uint32_t userId, uint32_t offset, uint32_t data_size, std::string* data);
    
-    int getSegmentSize() const 
+    uint32_t getSegmentSize() const 
     { return sengmentSize_; }
     
-    int getNextSegmentBlockSize() {
-        int blockSize = SEGMENT_SIZE;
+    uint32_t getNextSegmentBlockSize() {
+        uint32_t blockSize = SEGMENT_SIZE;
         if (transferedIdx_ + 1 == sengmentSize_) {
             blockSize = fileSize_ - transferedIdx_ * SEGMENT_SIZE;
         }
@@ -268,9 +270,9 @@ public:
     
 private:
     // 迭代器
-    inline int setMaxSegmentSize(uint32_t file_size) {
-        int seg_size = file_size / SEGMENT_SIZE;
-        if (fileSize_%SEGMENT_SIZE != 0) {
+    uint32_t setMaxSegmentSize(uint32_t file_size) {
+        uint32_t seg_size = file_size / SEGMENT_SIZE;
+        if (fileSize_ % SEGMENT_SIZE != 0) {
             seg_size = file_size / SEGMENT_SIZE + 1;
         }
         return seg_size;
@@ -279,12 +281,12 @@ private:
     FILE* fp_;
     
     // 已经传输
-    int transferedIdx_;
-    int sengmentSize_;
+    uint32_t transferedIdx_;
+    uint32_t sengmentSize_;
 };
 
 std::string generateUUID();
-const char* getCurrentOfflinePath();
+std::string getCurrentOfflinePath();
 
 //----------------------------------------------------------------------------
 class TransferTaskManager : public Singleton<TransferTaskManager> {
