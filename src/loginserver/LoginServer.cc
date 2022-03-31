@@ -5,6 +5,7 @@
 
 #include <sys/time.h>
 
+using namespace IM;
 using namespace slite;
 using namespace std::placeholders;
 
@@ -263,13 +264,4 @@ void LoginServer::onMsgServRequest(const TCPConnectionPtr& conn,
 
     // after send MsgServResponse, active close the connection
     conn->shutdown();
-}
-
-int main()
-{
-    Logger::setLogLevel(Logger::DEBUG);
-    EventLoop loop;
-    LoginServer loginServer("0.0.0.0", 10001, &loop);
-    loginServer.start();
-    loop.loop();
 }

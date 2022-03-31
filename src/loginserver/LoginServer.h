@@ -19,6 +19,8 @@ typedef std::shared_ptr<IM::Server::IMUserCntUpdate> UserCntUpdatePtr;
 typedef std::shared_ptr<IM::Login::IMMsgServReq> MsgServReqPtr;
 typedef std::shared_ptr<IM::Other::IMHeartBeat> HeartBeatPtr;
 
+namespace IM {
+
 class LoginServer
 {
 public:
@@ -73,3 +75,5 @@ private:
     static const int kHeartBeatInterVal = 5000;
     static const int kTimeout = 30000;
 };
+
+} // namespace IM
