@@ -437,7 +437,7 @@ if (!mapGroupId.empty())
             }
             dbPool_->relDBConn(dbConn);
             if (!groupInfos.empty()) {
-                for (auto groupInfo : groupInfos) {
+                for (auto &groupInfo : groupInfos) {
                     list<uint32_t> userIds;
                     uint32_t groupId = groupInfo.group_id();
                     getGroupUser(groupId, userIds);
