@@ -7,6 +7,7 @@ set(msgserver_SRCS
     FileClient.cc
     ImUser.cc
     ../base/protobuf_codec.cc
+    ../base/ConfigFileReader.cc
 )
 
 add_executable(msgserver ${msgserver_SRCS})
