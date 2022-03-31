@@ -136,7 +136,7 @@ void SyncCenter::updateLastUpdateGroup(uint32_t updated)
     CacheConn* cacheConn = cachePool_->getCacheConn();
     if (cacheConn) {
         //lock
-        lastUpdate_ = updated;
+        lastUpdateGroup_ = updated;
         string strUpdated = std::to_string(updated);
         cacheConn->set("last_update_group", strUpdated);
         cachePool_->relCacheConn(cacheConn);
@@ -168,6 +168,7 @@ void SyncCenter::doSyncGroupChat()
         });
         mapChangedGroup.clear();
         DBConn* dbConn = dbPool_->getDBConn();
+        // find changed user 
         if(dbConn) {
             string strSql = "SELECT id, lastChated FROM IMGroup WHERE status=0 AND lastChated >= " + std::to_string(getLastUpdateGroup());
             ResultSet* result = dbConn->executeQuery(strSql);
@@ -186,6 +187,7 @@ void SyncCenter::doSyncGroupChat()
             LOG_ERROR << "no db connection for teamtalk";
         }
         updateLastUpdateGroup(static_cast<uint32_t>(time(NULL)));
+        // update session
         for (const auto& item : mapChangedGroup) {
             uint32_t groupId = item.first;
             list<uint32_t> users;
