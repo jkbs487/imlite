@@ -37,7 +37,7 @@ CacheConn::CacheConn(CachePool *cachePool)
 		password_ = cachePool->getPassword();
 		poolName_ = cachePool->getPoolName();
 	} else {
-		log_error("cachePool is NULL\n");
+		LOG_ERROR << "cachePool is NULL";
 	}
 }
 
@@ -61,7 +61,7 @@ int CacheConn::init()
 	// 1s 尝试重连一次
 	uint64_t curTime = static_cast<uint64_t>(time(NULL));
 	if (curTime < lastConnectTime_ + 1) {		// 重连尝试 间隔1秒 
-		printf("curTime:%lu, m_last_connect_time:%lu\n", curTime, lastConnectTime_);
+		LOG_INFO << "curTime: " << curTime << ", lastConnectTime_:" << lastConnectTime_;
 		return 1;
 	}
 	// printf("m_last_connect_time = curTime\n");
@@ -90,12 +90,12 @@ int CacheConn::init()
 		reply = static_cast<redisReply*>(redisCommand(context_, "AUTH %s", password_.c_str()));
 
 		if (!reply || reply->type == REDIS_REPLY_ERROR) {
-			log_error("Authentication failure:%p\n", reply);
+			LOG_ERROR << "Authentication failure:" << reply;
 			if (reply)
 				freeReplyObject(reply);
 			return -1;
 		} else {
-			log_info("Authentication success\n");
+			LOG_INFO << "Authentication success";
 		}
 
 		freeReplyObject(reply);
@@ -135,7 +135,7 @@ string CacheConn::get(string key)
 
 	redisReply *reply = static_cast<redisReply*>(redisCommand(context_, "GET %s", key.c_str()));
 	if (!reply) {
-		log_error("redisCommand failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = NULL;
 		return value;
@@ -160,7 +160,7 @@ string CacheConn::set(string key, string &value)
 	redisReply *reply = static_cast<redisReply*>(
 		redisCommand(context_, "SET %s %s", key.c_str(), value.c_str()));
 	if (!reply) {
-		log_error("redisCommand failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = NULL;
 		return retValue;
@@ -182,7 +182,7 @@ string CacheConn::setex(string key, int timeout, string value)
 		redisCommand(context_, "SETEX %s %d %s", key.c_str(), timeout, value.c_str()));
 	if (!reply)
 	{
-		log_error("redisCommand failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = NULL;
 		return retValue;
@@ -218,7 +218,7 @@ bool CacheConn::mget(const vector<string> &keys, map<string, string> &ret_value)
 	strKey = "MGET " + strKey;
 	redisReply *reply = static_cast<redisReply*>(redisCommand(context_, strKey.c_str()));
 	if (!reply) {
-		log_info("redisCommand failed:%s\n", context_->errstr);
+		LOG_INFO << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = nullptr;
 		return false;
@@ -242,7 +242,7 @@ bool CacheConn::isExists(string &key)
 
 	redisReply *reply = static_cast<redisReply*>(redisCommand(context_, "EXISTS %s", key.c_str()));
 	if (!reply) {
-		log_error("redisCommand failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = nullptr;
 		return false;
@@ -264,7 +264,7 @@ long CacheConn::del(string &key)
 	redisReply *reply = static_cast<redisReply*>(redisCommand(
 		context_, "DEL %s", key.c_str()));
 	if (!reply) {
-		log_error("redisCommand failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = nullptr;
 		return 0;
@@ -283,7 +283,7 @@ long CacheConn::hdel(string key, string field)
 	redisReply *reply = static_cast<redisReply*>(redisCommand(
 		context_, "HDEL %s %s", key.c_str(), field.c_str()));
 	if (!reply) {
-		log_error("redisCommand failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = nullptr;
 		return 0;
@@ -303,7 +303,7 @@ string CacheConn::hget(string key, string field)
 	redisReply *reply = static_cast<redisReply*>(redisCommand(
 		context_, "HGET %s %s", key.c_str(), field.c_str()));
 	if (!reply) {
-		log_error("redisCommand failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = nullptr;
 		return ret_value;
@@ -325,7 +325,7 @@ bool CacheConn::hgetAll(string key, map<string, string> &ret_value)
 	redisReply *reply = static_cast<redisReply*>(redisCommand(
 		context_, "HGETALL %s", key.c_str()));
 	if (!reply) {
-		log_error("redisCommand failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = nullptr;
 		return false;
@@ -354,7 +354,7 @@ long CacheConn::hset(string key, string field, string value)
 	redisReply *reply = static_cast<redisReply*>(redisCommand(
 		context_, "HSET %s %s %s", key.c_str(), field.c_str(), value.c_str()));
 	if (!reply) {
-		log_error("redisCommand failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = nullptr;
 		return -1;
@@ -373,7 +373,7 @@ long CacheConn::hincrBy(string key, string field, long value)
 	redisReply *reply = static_cast<redisReply*>(redisCommand(
 		context_, "HINCRBY %s %s %ld", key.c_str(), field.c_str(), value));
 	if (!reply) {
-		log_error("redisCommand failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = nullptr;
 		return -1;
@@ -392,7 +392,7 @@ long CacheConn::incrBy(string key, long value)
 	redisReply *reply = static_cast<redisReply*>(redisCommand(
 		context_, "INCRBY %s %ld", key.c_str(), value));
 	if (!reply) {
-		log_error("redis Command failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = NULL;
 		return -1;
@@ -424,7 +424,7 @@ string CacheConn::hmset(string key, map<string, string> &hash)
 
 	redisReply *reply = static_cast<redisReply*>(redisCommandArgv(context_, argc, argv, NULL));
 	if (!reply) {
-		log_error("redisCommand failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		delete[] argv;
 
 		redisFree(context_);
@@ -460,7 +460,7 @@ bool CacheConn::hmget(string key, list<string> &fields, list<string> &ret_value)
 	redisReply *reply = static_cast<redisReply*>(redisCommandArgv(
 		context_, argc, const_cast<const char **>(argv), NULL));
 	if (!reply) {
-		log_error("redisCommand failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		delete[] argv;
 
 		redisFree(context_);
@@ -489,7 +489,7 @@ long CacheConn::incr(string key)
 
 	redisReply *reply = static_cast<redisReply*>(redisCommand(context_, "INCR %s", key.c_str()));
 	if (!reply) {
-		log_error("redis Command failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = NULL;
 		return -1;
@@ -506,7 +506,7 @@ long CacheConn::decr(string key)
 
 	redisReply *reply = static_cast<redisReply*>(redisCommand(context_, "DECR %s", key.c_str()));
 	if (!reply) {
-		log_error("redis Command failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = NULL;
 		return -1;
@@ -524,7 +524,7 @@ long CacheConn::lpush(string key, string value)
 	redisReply *reply = static_cast<redisReply*>(redisCommand(
 		context_, "LPUSH %s %s", key.c_str(), value.c_str()));
 	if (!reply) {
-		log_error("redisCommand failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = nullptr;
 		return -1;
@@ -543,7 +543,7 @@ long CacheConn::rpush(string key, string value)
 	redisReply *reply = static_cast<redisReply*>(redisCommand(
 		context_, "RPUSH %s %s", key.c_str(), value.c_str()));
 	if (!reply) {
-		log_error("redisCommand failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = nullptr;
 		return -1;
@@ -562,7 +562,7 @@ long CacheConn::llen(string key)
 	redisReply *reply = static_cast<redisReply*>(redisCommand(
 		context_, "LLEN %s", key.c_str()));
 	if (!reply) {
-		log_error("redisCommand failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = NULL;
 		return -1;
@@ -580,9 +580,8 @@ bool CacheConn::lrange(string key, long start, long end, list<string> &ret_value
 
 	redisReply *reply = static_cast<redisReply*>(redisCommand(
 		context_, "LRANGE %s %d %d", key.c_str(), start, end));
-	if (!reply)
-	{
-		log_error("redisCommand failed:%s\n", context_->errstr);
+	if (!reply) {
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = NULL;
 		return false;
@@ -608,7 +607,7 @@ bool CacheConn::flushdb()
 
 	redisReply *reply = static_cast<redisReply*>(redisCommand(context_, "FLUSHDB"));
 	if (!reply) {
-		log_error("redisCommand failed:%s\n", context_->errstr);
+		LOG_ERROR << "redisCommand failed:" << context_->errstr;
 		redisFree(context_);
 		context_ = nullptr;
 		return false;
@@ -678,13 +677,13 @@ CacheConn *CachePool::getCacheConn()
 				serverIp_.c_str(), serverPort_, dbIndex_, password_.c_str(), poolName_.c_str());
 			int ret = cacheConn->init();
 			if (ret) {
-				log_error("Init CacheConn failed\n");
+				LOG_ERROR << "Init CacheConn failed";
 				delete cacheConn;
 				return NULL;
 			} else {
 				freeList_.push_back(cacheConn);
 				curConnCnt_++;
-				log_info("new cache connection: %s, conn_cnt: %d\n", poolName_.c_str(), curConnCnt_);
+				LOG_INFO << "new cache connection: " << poolName_ << ", conn_cnt: " << curConnCnt_;
 			}
 		}
 	}

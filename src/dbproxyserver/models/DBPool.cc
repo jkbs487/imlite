@@ -211,8 +211,7 @@ DBConn::DBConn(DBPool *pool):
 
 DBConn::~DBConn()
 {
-	if (mysql_)
-	{
+	if (mysql_) {
 		mysql_close(mysql_);
 	}
 }
@@ -221,7 +220,7 @@ int DBConn::init()
 {
 	mysql_ = mysql_init(NULL);	// mysql_标准的mysql c client对应的api
 	if (!mysql_) {
-		log_error("mysql_init failed\n");
+		LOG_ERROR << "mysql_init failed";
 		return 1;
 	}
 
@@ -233,7 +232,7 @@ int DBConn::init()
 	if (!mysql_real_connect(mysql_, pool_->getDBServerIP().c_str(), pool_->getUsername().c_str(), pool_->getPasswrod().c_str(),
 							pool_->getDBName().c_str(), pool_->getDBServerPort(), NULL, 0))
 	{
-		log_error("mysql_real_connect failed: %s\n", mysql_error(mysql_));
+		LOG_ERROR << "mysql_real_connect failed:" << mysql_error(mysql_);
 		return 2;
 	}
 
@@ -250,7 +249,8 @@ bool DBConn::executeCreate(string sqlQuery)
 	mysql_ping(mysql_);
 	// mysql_real_query 实际就是执行了SQL
 	if (mysql_real_query(mysql_, sqlQuery.data(), sqlQuery.size())) {
-		log_error("mysql_real_query failed: %s, sql: start transaction\n", mysql_error(mysql_));
+		LOG_ERROR << "mysql_real_query failed: " << mysql_error(mysql_) 
+			<< ", sql: start transaction" << mysql_error(mysql_);
 		return false;
 	}
 
@@ -261,7 +261,8 @@ bool DBConn::executeDrop(const char *sql_query)
 	mysql_ping(mysql_);	// 如果端开了，能够自动重连
 
 	if (mysql_real_query(mysql_, sql_query, strlen(sql_query))) {
-		log_error("mysql_real_query failed: %s, sql: start transaction\n", mysql_error(mysql_));
+		LOG_ERROR << "mysql_real_query failed: " << mysql_error(mysql_) 
+			<< ", sql: start transaction" << mysql_error(mysql_);
 		return false;
 	}
 
@@ -273,14 +274,13 @@ ResultSet *DBConn::executeQuery(string sqlQuery)
 	mysql_ping(mysql_);
 
 	if (mysql_real_query(mysql_, sqlQuery.data(), sqlQuery.size())) {
-		log_error("mysql_real_query failed: %s, sql: %s\n", mysql_error(mysql_), sqlQuery.c_str());
+		LOG_ERROR << "mysql_real_query failed: " << mysql_error(mysql_) << ", sql: " << sqlQuery;
 		return NULL;
 	}
 	// 返回结果
 	MYSQL_RES *res = mysql_store_result(mysql_);	// 返回结果
-	if (!res)
-	{
-		log_error("mysql_store_result failed: %s\n", mysql_error(mysql_));
+	if (!res) {
+		LOG_ERROR << "mysql_store_result failed: " << mysql_error(mysql_);
 		return NULL;
 	}
 
@@ -464,13 +464,13 @@ DBConn *DBPool::getDBConn(const int timeout_ms)
 			DBConn *conn = new DBConn(this);	//新建连接
 			int ret = conn->init();
 			if (ret) {
-				log_error("Init DBConnecton failed\n\n");
+				LOG_ERROR << "Init DBConn failed";
 				delete conn;
 				return NULL;
 			} else {
 				freeList_.push_back(conn);
 				dbCurConnCnt_++;
-				log_info("new db connection: %s, conn_cnt: %d\n", poolName_.c_str(), dbCurConnCnt_);
+				LOG_INFO << "new db connection: " << poolName_ << ", conn_cnt:" << dbCurConnCnt_;
 			}
 		}
 	}
