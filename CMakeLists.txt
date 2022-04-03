@@ -7,7 +7,7 @@ endif()
 
 set(CXX_FLAGS
   -g
-  # -DVALGRIND
+  #-DVALGRIND
   -DCHECK_PTHREAD_RETURN_VALUE
   -D_FILE_OFFSET_BITS=64
   -Wall
@@ -58,5 +58,7 @@ message(STATUS "CXX_FLAGS = " ${CMAKE_CXX_FLAGS} " " ${CMAKE_CXX_FLAGS_${BUILD_T
 
 get_property(dirs DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
 message(">>> include_dirs=${dirs}")
+get_property(dirs DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY LINK_DIRECTORIES)
+message(">>> link_dirs=${dirs}")
 
 add_subdirectory(src)
