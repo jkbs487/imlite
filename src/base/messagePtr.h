@@ -30,6 +30,8 @@ typedef std::shared_ptr<IM::Buddy::IMDepartmentReq> DepartmentReqPtr;
 typedef std::shared_ptr<IM::Buddy::IMDepartmentRsp> DepartmentRspPtr;
 typedef std::shared_ptr<IM::Buddy::IMAllUserReq> AllUserReqPtr;
 typedef std::shared_ptr<IM::Buddy::IMAllUserRsp> AllUserRspPtr;
+typedef std::shared_ptr<IM::Buddy::IMUsersInfoReq> UsersInfoReqPtr;
+typedef std::shared_ptr<IM::Buddy::IMUsersInfoRsp> UsersInfoRspPtr;
 typedef std::shared_ptr<IM::Buddy::IMRecentContactSessionReq> RecentContactSessionReqPtr;
 typedef std::shared_ptr<IM::Buddy::IMRecentContactSessionRsp> RecentContactSessionRspPtr;
 typedef std::shared_ptr<IM::Buddy::IMUsersStatReq> UsersStatReqPtr;

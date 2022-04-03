@@ -49,6 +49,8 @@ DBProxyServer::DBProxyServer(std::string host, uint16_t port, EventLoop* loop):
         std::bind(&DBProxyServer::onRecentContactSessionRequest, this, _1, _2, _3));
     dispatcher_.registerMessageCallback<IM::Buddy::IMChangeSignInfoReq>(
         std::bind(&DBProxyServer::onChangeUserSignInfoRequest, this, _1, _2, _3));
+    dispatcher_.registerMessageCallback<IM::Buddy::IMUsersInfoReq>(
+        std::bind(&DBProxyServer::onUserInfoRequest, this, _1, _2, _3));
 
     dispatcher_.registerMessageCallback<IM::Group::IMNormalGroupListReq>(
         std::bind(&DBProxyServer::onNormalGroupListRequest, this, _1, _2, _3));
@@ -516,7 +518,6 @@ void DBProxyServer::onMsgData(const slite::TCPConnectionPtr& conn,
             GroupMessageModel groupMsgModel(dbPool_, cachePool_);
             if (msgType == IM::BaseDefine::MSG_TYPE_GROUP_TEXT) {
                 GroupModel groupModel(dbPool_, cachePool_);
-                // group id is validate? user is in this group?
                 if (groupModel.isValidateGroupId(toId) && groupModel.isInGroup(fromId, toId)) {
                     sessionId = sessionModel.getSessionId(fromId, toId, IM::BaseDefine::SESSION_TYPE_GROUP, false);
                     // create session
@@ -893,6 +894,39 @@ void DBProxyServer::onFileDelOfflineRequest(const slite::TCPConnectionPtr& conn,
     LOG_INFO << "fromId=" << userId << ", toId=" << toId << ", taskId=" << taskId;
 }
 
+void DBProxyServer::onUserInfoRequest(const slite::TCPConnectionPtr& conn, 
+                        const UsersInfoReqPtr& message, 
+                        int64_t receiveTime)
+{
+    IM::Buddy::IMUsersInfoRsp resp;
+    uint32_t fromUserId = message->user_id();
+    uint32_t userCount = message->user_id_list_size();
+    std::list<uint32_t> idList;
+    for (uint32_t i = 0; i < userCount; ++i) {
+        idList.push_back(message->user_id_list(i));
+    }
+
+    std::list<IM::BaseDefine::UserInfo> lsUser;
+    UserModel userModel(dbPool_, cachePool_);
+    userModel.getUsers(idList, lsUser);
+    resp.set_user_id(fromUserId);
+    for (const auto& user : lsUser) {
+        IM::BaseDefine::UserInfo* pUser = resp.add_user_info_list();
+        pUser->set_user_id(user.user_id());
+        pUser->set_user_gender(user.user_gender());
+        pUser->set_user_nick_name(user.user_nick_name());
+        pUser->set_avatar_url(user.avatar_url());
+        pUser->set_sign_info(user.sign_info());
+        pUser->set_department_id(user.department_id());
+        pUser->set_email(user.email());
+        pUser->set_user_real_name(user.user_real_name());
+        pUser->set_user_tel(user.user_tel());
+        pUser->set_user_domain(user.user_domain());
+        pUser->set_status(user.status());
+    }
+    LOG_INFO << "onUserInfoRequest, userId=" << fromUserId << ", userCnt=" << userCount;
+    codec_.send(conn, resp);
+}
 
 int main()
 {

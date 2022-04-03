@@ -55,6 +55,7 @@ private:
     void onAllUserRequest(const slite::TCPConnectionPtr& conn, const AllUserReqPtr& message, int64_t receiveTime);
     void onUsersStatusRequest(const slite::TCPConnectionPtr& conn, const UsersStatReqPtr& message, int64_t receiveTime);
     void onChangeSignInfoRequest(const slite::TCPConnectionPtr& conn, const ChangeSignInfoReqPtr& message, int64_t receiveTime);
+    void onUserInfoRequest(const slite::TCPConnectionPtr& conn, const UsersInfoReqPtr& message, int64_t receiveTime);
     
     void onNormalGroupListRequest(const slite::TCPConnectionPtr& conn, const NormalGroupListReqPtr& message, int64_t receiveTime);
     void onGroupChangeMemberResponse(const slite::TCPConnectionPtr& conn, const GroupChangeMemberRspPtr& message, int64_t receiveTime);

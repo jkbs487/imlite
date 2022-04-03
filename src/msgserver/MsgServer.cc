@@ -47,6 +47,8 @@ MsgServer::MsgServer(std::string host, uint16_t port, EventLoop* loop):
         std::bind(&MsgServer::onUsersStatusRequest, this, _1, _2, _3));
     dispatcher_.registerMessageCallback<IM::Buddy::IMChangeSignInfoReq>(
         std::bind(&MsgServer::onChangeSignInfoRequest, this, _1, _2, _3));
+    dispatcher_.registerMessageCallback<IM::Buddy::IMUsersInfoReq>(
+        std::bind(&MsgServer::onUserInfoRequest, this, _1, _2, _3));
 
     dispatcher_.registerMessageCallback<IM::Group::IMGroupChangeMemberRsp>(
         std::bind(&MsgServer::onGroupChangeMemberResponse, this, _1, _2, _3));
@@ -408,7 +410,7 @@ void MsgServer::onUsersStatusRequest(const TCPConnectionPtr& conn,
 {
     ClientConnInfo* clientInfo = std::any_cast<ClientConnInfo*>(conn->getContext());
     uint32_t userId = clientInfo->userId();
-    LOG_INFO << "onUnreadMsgCntRequest, user_id=" << userId;
+    LOG_INFO << "onUsersStatusRequest, userId=" << userId;
     
     TCPConnectionPtr routeConn = getRandomRouteConn();
     if (routeConn) {
@@ -424,7 +426,7 @@ void MsgServer::onUnreadMsgCntRequest(const TCPConnectionPtr& conn,
 {
     ClientConnInfo* clientInfo = std::any_cast<ClientConnInfo*>(conn->getContext());
     uint32_t userId = clientInfo->userId();
-    LOG_INFO << "onUsersStatusRequest, user_id=" << userId;
+    LOG_INFO << "onUnreadMsgCntRequest, user_id=" << userId;
     
     TCPConnectionPtr dbProxyConn = getRandomDBProxyConn();
     if (dbProxyConn) {
@@ -500,7 +502,7 @@ void MsgServer::onMsgData(const slite::TCPConnectionPtr& conn,
 	}
     
     if (message->from_user_id() == message->to_session_id() && CHECK_MSG_TYPE_SINGLE(message->msg_type())) {
-        LOG_WARN << "from_user_id == to_user_id";
+        LOG_WARN << "fromUserId == toUserId";
         return;
     }
 
@@ -582,7 +584,7 @@ void MsgServer::onGetLatestMsgIDReq(const TCPConnectionPtr& conn,
     ClientConnInfo* clientInfo = std::any_cast<ClientConnInfo*>(conn->getContext());
     uint32_t sessionType = message->session_type();
     uint32_t sessionId = message->session_id();
-    LOG_INFO << "onGetLatestMsgIDReq, user_id=" << clientInfo->userId() 
+    LOG_INFO << "onGetLatestMsgIDReq, userId=" << clientInfo->userId() 
         << ", session_id=" << sessionId << ", session_type=" << sessionType;
     
     TCPConnectionPtr dbConn = getRandomDBProxyConn();
@@ -598,7 +600,7 @@ void MsgServer::onChangeSignInfoRequest(const TCPConnectionPtr& conn,
                                         int64_t receiveTime)
 {
     ClientConnInfo* clientInfo = std::any_cast<ClientConnInfo*>(conn->getContext());
-    LOG_INFO << "onChangeSignInfoRequest, user_id=" << clientInfo->userId();
+    LOG_INFO << "onChangeSignInfoRequest, userId=" << clientInfo->userId();
     TCPConnectionPtr dbConn = getRandomDBProxyConn();
     if (dbConn) {
         message->set_user_id(clientInfo->userId());
@@ -622,7 +624,7 @@ void MsgServer::onGroupCreateRequest(const slite::TCPConnectionPtr& conn,
 	string groupAvatar = message->group_avatar();
 	uint32_t userCnt = message->member_id_list_size();
 	LOG_INFO << "onGroupCreateRequest, userId=" << userId << ", groupName=" 
-        << groupName << ", avatarUrl=" << groupAvatar << ", user_cnt=" << userCnt;
+        << groupName << ", avatarUrl=" << groupAvatar << ", userCnt=" << userCnt;
 
 	TCPConnectionPtr dbConn = getRandomDBProxyConn();
 	if (dbConn) {
@@ -789,4 +791,19 @@ void MsgServer::onFileDelOfflineRequest(const slite::TCPConnectionPtr& conn,
         message->set_from_user_id(fromId);
         codec_.send(dbConn, *message.get());
     }
+}
+
+void MsgServer::onUserInfoRequest(const slite::TCPConnectionPtr& conn, 
+                                const UsersInfoReqPtr& message, 
+                                int64_t receiveTime)
+{
+    ClientConnInfo* clientInfo = std::any_cast<ClientConnInfo*>(conn->getContext());
+    uint32_t userCnt = message->user_id_list_size();
+	LOG_INFO << "onUserInfoRequest, reqId=" << clientInfo->userId() << ", userCnt=" << userCnt;
+	TCPConnectionPtr dbConn = getRandomDBProxyConnForLogin();
+	if (dbConn) {
+        message->set_user_id(clientInfo->userId());
+        message->set_attach_data(conn->name());
+        codec_.send(dbConn, *message.get());
+	}
 }

@@ -160,6 +160,7 @@ int main(int argc, char* argv[])
             LOG_ERROR << "config item missing, exit...";
         }
         
+        Logger::setLogLevel(Logger::DEBUG);
         if (!logPath.empty()) {
             Logging* logging = new Logging(logPath, 1024 * 100);
             Logger::setOutput([&](std::string line) {
@@ -186,6 +187,6 @@ int main(int argc, char* argv[])
         fileClient.connect();
         loop.loop();
     }
-    
+
     exit(EXIT_SUCCESS);
 }

@@ -258,6 +258,9 @@ std::string ProtobufCodec::idToTypeName(uint16_t serviceId, uint16_t commandId)
     case IM::BaseDefine::CID_BUDDY_LIST_CHANGE_SIGN_INFO_REQUEST:
         typeName = "IM.Buddy.IMChangeSignInfoReq";
         break;
+    case IM::BaseDefine::CID_BUDDY_LIST_USER_INFO_REQUEST:
+        typeName = "IM.Buddy.IMUsersInfoReq";
+        break;
     case IM::BaseDefine::CID_MSG_DATA:
         typeName = "IM.Message.IMMsgData";
         break;
@@ -374,6 +377,9 @@ std::pair<uint16_t, uint16_t> ProtobufCodec::typeNameToId(std::string typeName)
     } else if (typeName == "IM.Server.IMServerPCLoginStatusNotify") {
         serviceId = 2;
         commandId = IM::BaseDefine::CID_BUDDY_LIST_PC_LOGIN_STATUS_NOTIFY;
+    } else if (typeName == "IM.Buddy.IMUsersInfoRsp") {
+        serviceId = 2;
+        commandId = IM::BaseDefine::CID_BUDDY_LIST_USER_INFO_RESPONSE;
     } else if (typeName == "IM.Message.IMUnreadMsgCntRsp") {
         serviceId = 3;
         commandId = IM::BaseDefine::CID_MSG_UNREAD_CNT_RESPONSE;

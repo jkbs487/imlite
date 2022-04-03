@@ -46,10 +46,12 @@ private:
     void onHeartBeat(const slite::TCPConnectionPtr& conn, const MessagePtr& message, int64_t receiveTime);
     void onValidateResponse(const slite::TCPConnectionPtr& conn, const ValidateRspPtr& message, int64_t receiveTime);
 
+    // buddy
     void onClientDepartmentResponse(const slite::TCPConnectionPtr& conn, const DepartmentRspPtr& message, int64_t receiveTime);
     void onRecentContactSessionResponse(const slite::TCPConnectionPtr& conn, const RecentContactSessionRspPtr& message, int64_t receiveTime);
     void onClientAllUserResponse(const slite::TCPConnectionPtr& conn, const AllUserRspPtr& message, int64_t receiveTime);
     void onChangeUserSignInfoResponse(const slite::TCPConnectionPtr& conn, const ChangeSignInfoRspPtr& message, int64_t receiveTime);
+    void onUserInfoResponse(const slite::TCPConnectionPtr& conn, const UsersInfoRspPtr& message, int64_t receiveTime);
 
     // Message
     void onMsgData(const slite::TCPConnectionPtr& conn, const MsgDataPtr& message, int64_t receiveTime);
