@@ -1,10 +1,15 @@
 #include "LoginServer.h"
+#include "HttpServer.h"
 #include "slite/Logger.h"
 #include "slite/Logging.h"
 #include "base/ConfigFileReader.h"
 
 #include <getopt.h>
 #include <unistd.h>
+
+using namespace slite;
+
+std::set<TCPConnectionPtr> g_msgConns;
 
 void createPidFile(std::string pidfile) {
     /* If pidfile requested, but no pidfile defined, use
@@ -114,7 +119,9 @@ int main(int argc, char* argv[])
 
         slite::EventLoop loop;
         IM::LoginServer loginServer(listenIp, static_cast<uint16_t>(std::stoi(listenPort)), &loop);
+        IM::HttpServer httpServer(httpListenIp, static_cast<uint16_t>(std::stoi(httpListenPort)), &loop);
         loginServer.start();
+        httpServer.start();
         loop.loop();
     }
     

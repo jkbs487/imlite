@@ -10,8 +10,12 @@ using namespace std::placeholders;
 
 extern MsgServer* g_msgServer;
 
-LoginClient::LoginClient(std::string host, uint16_t port, EventLoop* loop)
-    : client_(host, port, loop, "LoginClient"),
+LoginClient::LoginClient(std::string host, uint16_t port, EventLoop* loop, 
+                        std::string ipAddr1, std::string ipAddr2, int maxConnCnt)
+    : ipAddr1_(ipAddr1),
+    ipAddr2_(ipAddr2),
+    maxConnCnt_(maxConnCnt),
+    client_(host, port, loop, "LoginClient"),
     loop_(loop),
     dispatcher_(std::bind(&LoginClient::onUnknownMessage, this, _1, _2, _3)),
     codec_(std::bind(&ProtobufDispatcher::onProtobufMessage, &dispatcher_, _1, _2, _3)),
@@ -41,12 +45,12 @@ void LoginClient::onConnection(const TCPConnectionPtr& conn)
         conn->setContext(context);
 
         IM::Server::IMMsgServInfo msg;
-        msg.set_ip1("192.168.142.128");
-        msg.set_ip2("192.168.142.128");
+        msg.set_ip1(ipAddr1_);
+        msg.set_ip2(ipAddr2_);
         msg.set_host_name("msgserver");
         msg.set_port(g_msgServer->port());
         msg.set_cur_conn_cnt(0);
-        msg.set_max_conn_cnt(10);
+        msg.set_max_conn_cnt(maxConnCnt_);
         codec_.send(conn, msg);
     } else {
         g_loginConns.erase(conn);

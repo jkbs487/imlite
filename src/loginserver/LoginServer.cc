@@ -1,7 +1,6 @@
 #include "LoginServer.h"
-
+#include "MsgConnInfo.h"
 #include "slite/Logger.h"
-#include "nlohmann/json.hpp"
 
 #include <sys/time.h>
 
@@ -11,11 +10,9 @@ using namespace std::placeholders;
 
 LoginServer::LoginServer(std::string host, uint16_t port, EventLoop* loop):
     server_(host, port, loop, "LoginServer"),
-    httpServer_(host, 8001, loop, "HttpServer"),
     loop_(loop),
     dispatcher_(std::bind(&LoginServer::onUnknownMessage, this, _1, _2, _3)),
     codec_(std::bind(&ProtobufDispatcher::onProtobufMessage, &dispatcher_, _1, _2, _3)),
-    httpCodec_(std::bind(&LoginServer::onHttpRequest, this, _1)),
     totalOnlineUserCnt_(0)
 {
     server_.setConnectionCallback(
@@ -32,8 +29,6 @@ LoginServer::LoginServer(std::string host, uint16_t port, EventLoop* loop):
         std::bind(&LoginServer::onUserCntUpdate, this, _1, _2, _3));
     dispatcher_.registerMessageCallback<IM::Login::IMMsgServReq>(
         std::bind(&LoginServer::onMsgServRequest, this, _1, _2, _3));
-    httpServer_.setMessageCallback(
-        std::bind(&HTTPCodec::onMessage, &httpCodec_, _1, _2, _3));
 
     loop_->runEvery(1.0, std::bind(&LoginServer::onTimer, this));
 }
@@ -48,101 +43,31 @@ void LoginServer::onTimer()
     ::gettimeofday(&tval, NULL);
     int64_t currTick = tval.tv_sec * 1000L + tval.tv_usec / 1000L;
 
-    for (auto msgConn : msgConns_) {
-        Context* context = std::any_cast<Context*>(msgConn->getContext());
+    for (auto msgConn : g_msgConns) {
+        MsgConnInfo* msgInfo = std::any_cast<MsgConnInfo*>(msgConn->getContext());
 
-        if (currTick > context->lastSendTick + kHeartBeatInterVal) {
+        if (currTick > msgInfo->lastSendTick() + kHeartBeatInterVal) {
             IM::Other::IMHeartBeat msg;
             codec_.send(msgConn, msg);
         }
         
-        if (currTick > context->lastRecvTick + kTimeout) {
+        if (currTick > msgInfo->lastRecvTick() + kTimeout) {
             LOG_ERROR << "Connect to MsgServer timeout";
             msgConn->forceClose();
         }
     }
 }
 
-HTTPResponse LoginServer::onHttpRequest(HTTPRequest* req)
-{
-    HTTPResponse resp;
-    if (req->path() == "/msg_server") {
-        resp = onHttpMsgServRequest();
-    } else {
-        resp.setStatus(HTTPResponse::BAD_REQUEST);
-    }
-    return resp;
-}
-
-HTTPResponse LoginServer::onHttpMsgServRequest()
-{
-    HTTPResponse resp;
-    
-    if (msgConns_.empty()) {
-        std::string body = "{\"code\": 1, \"msg\": \"消息服务器不存在\"}";
-        resp.setContentLength(body.size());
-        resp.setBody(body);
-        return resp;
-    }
-
-    uint32_t minUserCnt = static_cast<uint32_t>(-1); 
-    TCPConnectionPtr minMsgConn = nullptr;
-
-    for (auto msgConn: msgConns_) {
-        Context* context = std::any_cast<Context*>(msgConn->getContext());
-        MsgServInfo* info = context->msgServInfo;
-        if ((info->curConnCnt < info->maxConnCnt) && 
-            (info->curConnCnt < minUserCnt)) {
-            minMsgConn = msgConn;
-            minUserCnt = info->curConnCnt;
-        }
-    }
-
-    if (minMsgConn == nullptr) {
-        LOG_ERROR << "All TCP MsgServer are full";
-        nlohmann::json body = nlohmann::json::object();
-        body["code"] = 2;
-        body["msg"] = "负载过高";
-        resp.setContentLength(body.dump().size());
-        resp.setBody(body.dump());
-    } else {
-        MsgServInfo* info = std::any_cast<Context*>(
-            minMsgConn->getContext())->msgServInfo;
-        nlohmann::json body = nlohmann::json::object();
-        body["code"] = 0;
-        body["msg"] = "OK";
-        body["priorIP"] = info->ipAddr1;
-        body["backupIP"] = info->ipAddr2;
-        body["msfsPrior"] = "http://127.0.0.1:8700/";
-        body["msfsBackup"] = "http://127.0.0.1:8700/";
-        body["discovery"] = "http://127.0.0.1/api/discovery";
-        body["port"] = std::to_string(info->port);
-        resp.setContentLength(body.dump().size());
-        LOG_DEBUG << body.dump();
-        resp.setBody(body.dump());
-    }
-
-    resp.setStatus(HTTPResponse::OK);
-    resp.setContentType("text/html;charset=utf-8");
-    resp.setHeader("Connection", "close");
-    return resp;
-}
-
 void LoginServer::onConnection(const TCPConnectionPtr& conn)
 {
     if (conn->connected()) {
-        msgConns_.insert(conn);
-        Context* context = new Context();
-        struct timeval tval;
-        ::gettimeofday(&tval, NULL);
-        context->lastRecvTick = context->lastSendTick = 
-            tval.tv_sec * 1000L + tval.tv_usec / 1000L;
-        context->msgServInfo = nullptr;
-        conn->setContext(context);
+        g_msgConns.insert(conn);
+        MsgConnInfo* msgInfo = new MsgConnInfo();
+        conn->setContext(msgInfo);
     } else {
-        Context* context = std::any_cast<Context*>(conn->getContext());
-        delete context;
-        msgConns_.erase(conn);
+        g_msgConns.erase(conn);
+        MsgConnInfo* msgInfo = std::any_cast<MsgConnInfo*>(conn->getContext());
+        delete msgInfo;
     }
 }
 
@@ -151,16 +76,16 @@ void LoginServer::onMessage(const TCPConnectionPtr& conn,
                             int64_t receiveTime)
 {
     codec_.onMessage(conn, buffer, receiveTime);
-    Context* context = std::any_cast<Context*>(conn->getContext());
-    context->lastRecvTick = receiveTime;
+    MsgConnInfo* msgInfo = std::any_cast<MsgConnInfo*>(conn->getContext());
+    msgInfo->setLastRecvTick(receiveTime);
 }
 
 void LoginServer::onWriteComplete(const TCPConnectionPtr& conn)
 {
-    Context* context = std::any_cast<Context*>(conn->getContext());
+    MsgConnInfo* msgInfo = std::any_cast<MsgConnInfo*>(conn->getContext());
     struct timeval tval;
     ::gettimeofday(&tval, NULL);
-    context->lastSendTick = tval.tv_sec * 1000L + tval.tv_usec / 1000L;
+    msgInfo->setLastSendTick(tval.tv_sec * 1000L + tval.tv_usec / 1000L);
 }
 
 void LoginServer::onUnknownMessage(const TCPConnectionPtr& conn,
@@ -176,8 +101,8 @@ void LoginServer::onHeartBeat(const TCPConnectionPtr& conn,
                                 int64_t receiveTime)
 {
     //LOG_INFO << "onHeartBeat[" << conn->name() << "]: " << message->GetTypeName();
-    Context* context = std::any_cast<Context*>(conn->getContext());
-    context->lastRecvTick = receiveTime;
+    MsgConnInfo* msgInfo = std::any_cast<MsgConnInfo*>(conn->getContext());
+    msgInfo->setLastRecvTick(receiveTime);
 }
 
 void LoginServer::onMsgServInfo(const TCPConnectionPtr& conn,
@@ -185,15 +110,14 @@ void LoginServer::onMsgServInfo(const TCPConnectionPtr& conn,
                                 int64_t)
 {
     LOG_INFO << "onMsgServInfo: " << message->GetTypeName();
-    MsgServInfo* msgServInfo = new MsgServInfo();
-    msgServInfo->ipAddr1 = message->ip1();
-    msgServInfo->ipAddr2 = message->ip2();
-    msgServInfo->port = static_cast<uint16_t>(message->port());
-    msgServInfo->hostname = message->host_name();
-    msgServInfo->maxConnCnt = message->max_conn_cnt();
-    msgServInfo->curConnCnt = message->cur_conn_cnt();
-    Context* context = std::any_cast<Context*>(conn->getContext());
-    context->msgServInfo = msgServInfo;
+    MsgConnInfo* msgInfo = std::any_cast<MsgConnInfo*>(conn->getContext());
+    msgInfo->setIpAddr1(message->ip1());
+    msgInfo->setIpAddr2(message->ip2());
+    msgInfo->setPort(static_cast<uint16_t>(message->port()));
+    msgInfo->setHostname(message->host_name());
+    msgInfo->setMaxConnCnt(message->max_conn_cnt());
+    msgInfo->setCurConnCnt(message->cur_conn_cnt());
+
 	LOG_INFO << "MsgServInfo, ip_addr1=" << message->ip1() << ", ip_addr2=" << message->ip2() 
         << ", port=" << message->port() << ", max_conn_cnt=" << message->max_conn_cnt() 
         << ", cur_conn_cnt= " << message->cur_conn_cnt() << ", hostname: " << message->host_name();
@@ -203,21 +127,20 @@ void LoginServer::onUserCntUpdate(const TCPConnectionPtr& conn,
                                 const UserCntUpdatePtr& message, 
                                 int64_t receiveTime)
 {
-    MsgServInfo* info = 
-        std::any_cast<Context*>(conn->getContext())->msgServInfo;
+    MsgConnInfo* msgInfo = std::any_cast<MsgConnInfo*>(conn->getContext());
     
     if (message->user_action() == 1) {
-        info->curConnCnt++;
+        msgInfo->incrCurConnCnt();
         totalOnlineUserCnt_++;
     } else {
-        if (info->curConnCnt > 0)
-            info->curConnCnt--;
+        if (msgInfo->curConnCnt() > 0)
+            msgInfo->decrCurConnCnt();
         if (totalOnlineUserCnt_ > 0)
             totalOnlineUserCnt_--;
     }
 
-    LOG_INFO << "onUserCntUpdate: " << info->hostname << ":" << info->port << ", curCnt=" 
-    << info->curConnCnt << ", totalCnt=" << totalOnlineUserCnt_;
+    LOG_INFO << "onUserCntUpdate: " << msgInfo->hostname() << ":" << msgInfo->port() << ", curCnt=" 
+    << msgInfo->curConnCnt() << ", totalCnt=" << totalOnlineUserCnt_;
 }
 
 void LoginServer::onMsgServRequest(const TCPConnectionPtr& conn, 
@@ -226,7 +149,7 @@ void LoginServer::onMsgServRequest(const TCPConnectionPtr& conn,
 {
     LOG_INFO << "onMsgServRequest: " << message->GetTypeName();
     
-    if (msgConns_.empty()) {
+    if (g_msgConns.empty()) {
         IM::Login::IMMsgServRsp msg;
         msg.set_result_code(::IM::BaseDefine::REFUSE_REASON_NO_MSG_SERVER);
         codec_.send(conn, msg);
@@ -236,13 +159,12 @@ void LoginServer::onMsgServRequest(const TCPConnectionPtr& conn,
     uint32_t minUserCnt = static_cast<uint32_t>(-1); 
     TCPConnectionPtr minMsgConn = nullptr;
 
-    for (auto msgConn: msgConns_) {
-        Context* context = std::any_cast<Context*>(msgConn->getContext());
-        MsgServInfo* info = context->msgServInfo;
-        if ((info->curConnCnt < info->maxConnCnt) && 
-            (info->curConnCnt < minUserCnt)) {
+    for (auto msgConn: g_msgConns) {
+        MsgConnInfo* msgInfo = std::any_cast<MsgConnInfo*>(msgConn->getContext());
+        if ((msgInfo->curConnCnt() < msgInfo->maxConnCnt()) && 
+            (msgInfo->curConnCnt() < minUserCnt)) {
             minMsgConn = msgConn;
-            minUserCnt = info->curConnCnt;
+            minUserCnt = msgInfo->curConnCnt();
         }
     }
 
@@ -252,13 +174,12 @@ void LoginServer::onMsgServRequest(const TCPConnectionPtr& conn,
         msg.set_result_code(::IM::BaseDefine::REFUSE_REASON_MSG_SERVER_FULL);
         codec_.send(conn, msg);
     } else {
-        Context* context = std::any_cast<Context*>(minMsgConn->getContext());
-        MsgServInfo* info = context->msgServInfo;
+        MsgConnInfo* msgInfo = std::any_cast<MsgConnInfo*>(minMsgConn->getContext());
         IM::Login::IMMsgServRsp msg;
         msg.set_result_code(::IM::BaseDefine::REFUSE_REASON_NONE);
-        msg.set_prior_ip(info->ipAddr1);
-        msg.set_backip_ip(info->ipAddr2);
-        msg.set_port(info->port);
+        msg.set_prior_ip(msgInfo->ipAddr1());
+        msg.set_backip_ip(msgInfo->ipAddr2());
+        msg.set_port(msgInfo->port());
         codec_.send(conn, msg);
     }
 

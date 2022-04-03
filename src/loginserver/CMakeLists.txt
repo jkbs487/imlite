@@ -1,6 +1,7 @@
 set(loginserver_SRCS
     main.cc
     LoginServer.cc
+    HttpServer.cc
     ../base/ConfigFileReader.cc
 )
 

@@ -26,7 +26,8 @@ namespace IM {
 class LoginClient
 {
 public:
-    LoginClient(std::string host, uint16_t port, slite::EventLoop* loop);
+    LoginClient(std::string host, uint16_t port, slite::EventLoop* loop, 
+                std::string ipAddr1, std::string ipAddr2, int maxConnCnt = 10000);
     ~LoginClient() {}
 
     void connect() {
@@ -39,6 +40,10 @@ private:
     void onWriteComplete(const slite::TCPConnectionPtr& conn);
     void onUnknownMessage(const slite::TCPConnectionPtr& conn, const MessagePtr& message, int64_t receiveTime);
     void onHeartBeat(const slite::TCPConnectionPtr& conn, const MessagePtr& message, int64_t receiveTime);
+
+    std::string ipAddr1_;
+    std::string ipAddr2_;
+    int maxConnCnt_;
 
     slite::TCPClient client_;
     slite::EventLoop* loop_;
